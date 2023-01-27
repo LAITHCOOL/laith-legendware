@@ -1,0 +1,409 @@
+void autowall::scale_damage(player_t* e, CGameTrace& enterTrace, weapon_info_t* weaponData, float& currentDamage)
+{
+	if (!e->is_player())
+		return;
+
+	auto is_armored = [&]()->bool
+	{
+		auto has_helmet = e->m_bHasHelmet();
+		auto armor_value = e->m_ArmorValue();
+
+		if (armor_value > 0)
+		{
+			switch (enterTrace.hitgroup)
+			{
+			case HITGROUP_HEAD:
+				return has_helmet;
+			case HITGROUP_GENERIC:
+			case HITGROUP_CHEST:
+			case HITGROUP_STOMACH:
+			case HITGROUP_LEFTARM:
+			case HITGROUP_RIGHTARM:
+				return true;
+			default:
+				return false;
+			}
+		}
+
+		return false;
+	};
+
+	static auto mp_damage_scale_ct_head = m_cvar()->FindVar(crypt_str("mp_damage_scale_ct_head")); //-V807
+	static auto mp_damage_scale_t_head = m_cvar()->FindVar(crypt_str("mp_damage_scale_t_head"));
+
+	static auto mp_damage_scale_ct_body = m_cvar()->FindVar(crypt_str("mp_damage_scale_ct_body"));
+	static auto mp_damage_scale_t_body = m_cvar()->FindVar(crypt_str("mp_damage_scale_t_body"));
+
+	auto head_scale = e->m_iTeamNum() == 3 ? mp_damage_scale_ct_head->GetFloat() : mp_damage_scale_t_head->GetFloat();
+	auto body_scale = e->m_iTeamNum() == 3 ? mp_damage_scale_ct_body->GetFloat() : mp_damage_scale_t_body->GetFloat();
+
+	auto armor_heavy = e->m_bHasHeavyArmor();
+	auto armor_value = (float)e->m_ArmorValue();
+
+	if (armor_heavy)
+		head_scale *= 0.5f;
+
+	switch (enterTrace.hitgroup)
+	{
+	case HITGROUP_HEAD:
+		currentDamage *= armor_heavy ? 2.f : 4.f;
+		break;
+	case HITGROUP_STOMACH:
+		currentDamage *= 1.25f;
+		break;
+	case HITGROUP_LEFTLEG:
+	case HITGROUP_RIGHTLEG:
+		currentDamage *= 0.75f;
+		break;
+	default:
+		break;
+	}
+
+	if (is_armored())
+	{
+		auto armor_scale = 1.0f;
+		auto armor_ratio = weaponData->flArmorRatio * 0.5f;
+		auto armor_bonus_ratio = 0.5f;
+
+		if (armor_heavy)
+		{
+			armor_ratio *= 0.2f;
+			armor_bonus_ratio = 0.33f;
+			armor_scale = 0.25f;
+		}
+
+		auto new_damage = currentDamage * armor_ratio;
+		auto estiminated_damage = (currentDamage - currentDamage * armor_ratio) * armor_scale * armor_bonus_ratio;
+
+		if (estiminated_damage > armor_value)
+			new_damage = currentDamage - armor_value / armor_bonus_ratio;
+
+		currentDamage = new_damage;
+	}
+}
+
+// проверка
+float GetForwardYaw(player_t* player) {
+	return math::normalize_yaw(math::normalize_yaw(math::calculate_angle(g_ctx.local()->m_vecOrigin(), player->m_vecOrigin()).y));
+}
+
+float GetBackwardYaw(player_t* player) {
+	return math::calculate_angle(g_ctx.local()->m_vecOrigin(), player->m_vecOrigin()).y;
+}
+
+void resolver::detectsides(player_t* player, int* side)
+{
+	if (!g_ctx.local() || !g_ctx.local()->is_alive() || !g_ctx.local()->m_hActiveWeapon())
+		return;
+
+	Vector src3D, dst3D, forward, right, up, src, dst;
+	float back_two, right_two, left_two;
+	trace_t tr;
+	Ray_t ray, ray2, ray3, ray4, ray5;
+	CTraceFilter filter;
+
+	filter.pSkip = player;
+	src3D = player->get_eye_pos();
+	dst3D = src3D + (forward * 384);
+
+	ray.Init(src3D, dst3D);
+	m_trace()->TraceRay(ray, MASK_SHOT, &filter, &tr);
+	back_two = (tr.endpos - tr.startpos).Length();
+
+	ray2.Init(src3D + right * 35, dst3D + right * 35);
+	m_trace()->TraceRay(ray2, MASK_SHOT, &filter, &tr);
+	right_two = (tr.endpos - tr.startpos).Length();
+
+	ray3.Init(src3D - right * 35, dst3D - right * 35);
+	m_trace()->TraceRay(ray3, MASK_SHOT, &filter, &tr);
+	left_two = (tr.endpos - tr.startpos).Length();
+
+	if (left_two > right_two) {
+		*side = 1;
+	}
+	else if (right_two > left_two) {
+		*side = -1;
+	}
+	else
+		*side = 1; 
+}
+
+// виви паста хули мне я пастер кодер и т.д
+void resolver::StoreAntifreestand(player_t* player, int* fside)
+{
+	if (!g_ctx.local()->is_alive())
+		return;
+
+	if (!g_ctx.globals.weapon)
+		return;
+
+	bool Autowalled = false, HitSide1 = false, HitSide2 = false;
+	auto idx = player->EntIndex();
+	float angToLocal = math::calculate_angle(g_ctx.local()->m_vecOrigin(), player->m_vecOrigin()).y;
+	Vector ViewPoint = g_ctx.local()->m_vecOrigin() + Vector(0, 0, 90);
+	Vector2D Side1 = { (45 * sin(DEG2RAD(angToLocal))),(45 * cos(DEG2RAD(angToLocal))) };
+	Vector2D Side2 = { (45 * sin(DEG2RAD(angToLocal + 180))) ,(45 * cos(DEG2RAD(angToLocal + 180))) };
+
+	Vector2D Side3 = { (50 * sin(DEG2RAD(angToLocal))),(50 * cos(DEG2RAD(angToLocal))) };
+	Vector2D Side4 = { (50 * sin(DEG2RAD(angToLocal + 180))) ,(50 * cos(DEG2RAD(angToLocal + 180))) };
+
+	Vector Origin = player->m_vecOrigin();
+
+	Vector2D OriginLeftRight[] = { Vector2D(Side1.x, Side1.y), Vector2D(Side2.x, Side2.y) };
+
+	Vector2D OriginLeftRightLocal[] = { Vector2D(Side3.x, Side3.y), Vector2D(Side4.x, Side4.y) };
+
+	for (int side = 0; side < 2; side++)
+	{
+		Vector OriginAutowall = { Origin.x + OriginLeftRight[side].x,  Origin.y - OriginLeftRight[side].y , Origin.z + 90 };
+		Vector ViewPointAutowall = { ViewPoint.x + OriginLeftRightLocal[side].x,  ViewPoint.y - OriginLeftRightLocal[side].y , ViewPoint.z };
+
+		if (autowall::get().CanHitFloatingPoint(OriginAutowall, ViewPoint))
+		{
+			if (side == 0)
+			{
+				HitSide1 = true;
+				*FreestandSide = 1;
+			}
+			else if (side == 1)
+			{
+				HitSide2 = true;
+				*FreestandSide = -1;
+			}
+
+			Autowalled = true;
+		}
+		else
+		{
+			for (int sidealternative = 0; sidealternative < 2; sidealternative++)
+			{
+				Vector ViewPointAutowallalternative = { Origin.x + OriginLeftRight[sidealternative].x,  Origin.y - OriginLeftRight[sidealternative].y , Origin.z + 90 };
+
+				if (autowall::get().CanHitFloatingPoint(OriginAutowall, ViewPoint))
+				{
+					if (sidealternative == 0)
+					{
+						HitSide1 = true;
+						*FreestandSide = 1;
+					}
+					else if (sidealternative == 1)
+					{
+						HitSide2 = true;
+						*FreestandSide = -1;
+					}
+
+					Autowalled = true;
+				}
+			}
+		}
+	}
+	if (!Autowalled)
+		detectsides(player, FreestandSide);
+}
+
+bool misc::double_tap(CUserCmd* m_pcmd)
+{
+	double_tap_enabled = true;
+
+	static auto recharge_rapid_fire = false;
+	static bool firing_dt = false;
+	static int last_double_tap = 0;
+
+	if (recharge_rapid_fire)
+	{
+		recharge_rapid_fire = false;
+		recharging_double_tap = true;
+		g_ctx.globals.ticks_allowed = 0;
+		g_ctx.globals.next_tickbase_shift = 0;
+		return false;
+	}
+
+	auto max_tickbase_shift = g_ctx.globals.weapon->get_max_tickbase_shift();
+
+	if (recharging_double_tap)
+	{
+		bool can_recharge = g_ctx.globals.weapon->is_sniper() ? g_ctx.globals.weapon->can_fire(true) : fabs(g_ctx.globals.fixed_tickbase - last_double_tap) > TIME_TO_TICKS(0.45f);
+
+		if (~m_pcmd->m_buttons & IN_ATTACK && !aim::get().should_stop && can_recharge)
+		{
+			recharging_double_tap = false;
+			double_tap_key = true;
+			firing_dt = false;
+		}
+		else if (m_pcmd->m_buttons & IN_ATTACK)
+		{
+			firing_dt = true;
+			last_double_tap = g_ctx.globals.fixed_tickbase;
+		}
+	}
+
+	if (!g_cfg.ragebot.enable)
+	{
+		double_tap_enabled = false;
+		double_tap_key = false;
+		g_ctx.globals.ticks_allowed = 0;
+		g_ctx.globals.next_tickbase_shift = 0;
+		return false;
+	}
+
+	if (!g_cfg.ragebot.double_tap)
+	{
+		double_tap_enabled = false;
+		double_tap_key = false;
+		g_ctx.globals.ticks_allowed = 0;
+		g_ctx.globals.next_tickbase_shift = 0;
+		return false;
+	}
+
+	static bool was_in_dt = false;
+
+	if (g_cfg.ragebot.double_tap_key.key <= KEY_NONE || g_cfg.ragebot.double_tap_key.key >= KEY_MAX)
+	{
+		double_tap_enabled = false;
+		double_tap_key = false;
+		g_ctx.globals.ticks_allowed = 0;
+		g_ctx.globals.next_tickbase_shift = 0;
+		return false;
+	}
+
+	if (double_tap_key && g_cfg.ragebot.double_tap_key.key != g_cfg.antiaim.hide_shots_key.key)
+		hide_shots_key = false;
+
+	if (!double_tap_key || g_ctx.local()->m_bGunGameImmunity() || g_ctx.local()->m_fFlags() & FL_FROZEN || g_ctx.globals.fakeducking)
+	{
+		double_tap_enabled = false;
+
+		if (!firing_dt && was_in_dt)
+		{
+			g_ctx.globals.trigger_teleport = true;
+			g_ctx.globals.teleport_amount = 14;
+
+			was_in_dt = false;
+		}
+
+		g_ctx.globals.ticks_allowed = 0;
+		g_ctx.globals.next_tickbase_shift = 0;
+
+		return false;
+	}
+
+	if (m_gamerules()->m_bIsValveDS())
+	{
+		double_tap_enabled = false;
+		g_ctx.globals.ticks_allowed = 0;
+		g_ctx.globals.next_tickbase_shift = 0;
+		return false;
+	}
+
+	if (antiaim::get().freeze_check)
+		return true;
+
+	was_in_dt = true;
+
+	bool can_peek = !g_ctx.globals.weapon->is_non_aim() && key_binds::get().get_key_bind_state(18);
+
+	if (!g_ctx.globals.weapon->is_grenade() && g_ctx.globals.weapon->m_iItemDefinitionIndex() != WEAPON_TASER && g_ctx.globals.weapon->m_iItemDefinitionIndex() != WEAPON_REVOLVER && !g_ctx.globals.weapon->is_knife() && g_ctx.send_packet && m_pcmd->m_buttons & IN_ATTACK) //-V648
+	{
+		auto next_command_number = m_pcmd->m_command_number + 1;
+		auto user_cmd = m_input()->GetUserCmd(next_command_number);
+
+		memcpy(user_cmd, m_pcmd, sizeof(CUserCmd)); //-V598
+		user_cmd->m_command_number = next_command_number;
+
+		util::copy_command(user_cmd, max_tickbase_shift);
+
+		if (g_ctx.globals.aimbot_working)
+		{
+			g_ctx.globals.double_tap_aim = true;
+			g_ctx.globals.double_tap_aim_check = true;
+		}
+
+		recharge_rapid_fire = true;
+		double_tap_enabled = false;
+		double_tap_key = false;
+
+		last_double_tap = g_ctx.globals.fixed_tickbase;
+		firing_dt = true;
+	}
+	else if (!g_ctx.globals.weapon->is_grenade() && g_ctx.globals.weapon->m_iItemDefinitionIndex() != WEAPON_TASER && !g_ctx.globals.weapon->is_knife() && g_ctx.globals.weapon->m_iItemDefinitionIndex() != WEAPON_REVOLVER)
+			g_ctx.globals.tickbase_shift = max_tickbase_shift;
+	else
+	{
+		// хуя хуйня ну похуй надо было делать через CLMove.... бляятьььь я тупиздень 
+		if (g_cfg.ragebot.defensive)
+		{
+			if (++g_ctx.globals.shift_timer > 15) // вопрос это откуда....
+				g_ctx.globals.shift_timer = 0;
+
+			g_ctx.send_packet = true; // LNK1181
+			g_ctx.globals.tickbase_shift = g_ctx.globals.shift_timer > 0 ? max_tickbase_shift : 0;
+		}
+	}
+
+	return true;
+}
+
+	if (g_cfg.ragebot.defensive_doubletap)
+	{
+		if (g_ctx.local()->m_vecVelocity().Length2D() < .5f)
+		{
+			g_ctx.update.m_bIsLocalPeek = false;
+			// break lc
+			g_ctx.globals.tickbase_shift = 2;
+			return;
+		}
+
+		// predpos
+		Vector predicted_eye_pos = g_ctx.globals.eye_pos + (engineprediction::get().backup_data.velocity * m_globals()->m_intervalpertick);
+
+		for (auto i = 1; i <= m_globals()->m_maxclients; i++)
+		{
+			auto e = static_cast<player_t*>(m_entitylist()->GetClientEntity(i));
+			if (!e->valid(true))
+				continue;
+
+			auto records = &player_records[i];
+			if (records->empty())
+				continue;
+
+			auto record = &records->front();
+			if (!record->valid())
+				continue;
+
+			// apply player animated data
+			record->adjust_player();
+
+			// look all ticks for get first hitable
+			for (int next_chock = 1; next_chock <= m_clientstate()->iChokedCommands; ++next_chock)
+			{
+				predicted_eye_pos *= next_chock;
+
+				auto fire_data = autowall::get().wall_penetration(predicted_eye_pos, e->hitbox_position_matrix(HITBOX_HEAD, record->matrixes_data.first), e);
+				if (!fire_data.valid || fire_data.damage < 1)
+					continue;
+
+				g_ctx.update.m_bIsLocalPeek = true;
+				m_debugoverlay()->AddBoxOverlay(predicted_eye_pos, Vector(-0.7f, -0.7f, -0.7f), Vector(0.7f, 0.7f, 0.7f), Vector(0.f, 0.f, 0.f), 0, 255, 0, 100, m_globals()->m_intervalpertick * 2);
+			}
+		}
+
+		// не, ну типо поршес сделал аншифт на пик, получ симтайм и тикбейз ебануца назад в этот тик и на пике не уебашут...
+		// тоже логично, но теперь тут еще и брик лц в остальное время
+		if (g_ctx.update.m_bIsLocalPeek)
+		{
+			if (!g_ctx.update.m_bInDiffensiveDt)
+			{
+				g_ctx.update.m_bInDiffensiveDt = true;
+				g_ctx.globals.tickbase_shift = 13;
+				return;
+			}
+		}
+		else
+		{
+			g_ctx.update.m_bInDiffensiveDt = false;
+			m_debugoverlay()->AddBoxOverlay(predicted_eye_pos, Vector(-0.7f, -0.7f, -0.7f), Vector(0.7f, 0.7f, 0.7f), Vector(0.f, 0.f, 0.f), 255, 0, 0, 100, m_globals()->m_intervalpertick * 2);
+		}
+
+		// break lc
+		g_ctx.globals.tickbase_shift = 2;
+	}
