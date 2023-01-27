@@ -330,7 +330,7 @@ void CResolver::layer_test()
 		player_record->curSide = RIGHT;
 
 	else
-		get_side_trace();
+		detect_side();
 
 
 }
@@ -368,7 +368,7 @@ void CResolver::get_side_standing()
 			player_record->curSide = LEFT;
 	}
 	else
-		get_side_trace();
+		detect_side();
 }
 
 
