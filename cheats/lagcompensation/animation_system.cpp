@@ -715,7 +715,7 @@ void lagcompensation::FixPvs(player_t* pCurEntity)
 		if (!pCurEntity
 			|| !pCurEntity->is_player()
 			|| pCurEntity->EntIndex() == m_engine()->GetLocalPlayer())
-			continue;
+			return;
 
 		*reinterpret_cast<int*>(reinterpret_cast<uintptr_t>(pCurEntity) + 0xA30) = m_globals()->m_framecount;
 		*reinterpret_cast<int*>(reinterpret_cast<uintptr_t>(pCurEntity) + 0xA28) = 0;	
