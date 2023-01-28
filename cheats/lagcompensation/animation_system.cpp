@@ -90,7 +90,7 @@ void lagcompensation::fsn(ClientFrameStage_t stage)
 			break;
 		case FRAME_RENDER_START:
 			e->set_abs_origin(e->m_vecOrigin());
-			FixPvs();
+			FixPvs(e);
 			break;
 		}
 
@@ -710,20 +710,13 @@ void lagcompensation::update_player_animations(player_t* e)
         record->invalid = true;
 }
 
-void lagcompensation::FixPvs()
+void lagcompensation::FixPvs(player_t* pCurEntity)
 {
-	for (int i = 1; i <= m_globals()->m_maxclients; i++) {
-		auto pCurEntity = static_cast<player_t*>(m_entitylist()->GetClientEntity(i));
-
-		if (pCurEntity == g_ctx.local())
-			continue;
-
 		if (!pCurEntity
 			|| !pCurEntity->is_player()
 			|| pCurEntity->EntIndex() == m_engine()->GetLocalPlayer())
 			continue;
 
 		*reinterpret_cast<int*>(reinterpret_cast<uintptr_t>(pCurEntity) + 0xA30) = m_globals()->m_framecount;
-		*reinterpret_cast<int*>(reinterpret_cast<uintptr_t>(pCurEntity) + 0xA28) = 0;
-	}
+		*reinterpret_cast<int*>(reinterpret_cast<uintptr_t>(pCurEntity) + 0xA28) = 0;	
 }
