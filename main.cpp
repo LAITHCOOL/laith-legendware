@@ -224,8 +224,8 @@ DWORD WINAPI main(PVOID base)
 		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 	CreateDirectory(crypt_str("C:\\itzlaith_lw\\"), NULL);
-	CreateDirectory(crypt_str("C:\\itzlaith_lw\\Configs\\"), NULL);
-	CreateDirectory(crypt_str("C:\\itzlaith_lw\\Scripts\\"), NULL);
+	CreateDirectory(crypt_str("C:\\itzlaith_lw\\configs\\"), NULL);
+	CreateDirectory(crypt_str("C:\\itzlaith_lw\\scripts\\"), NULL);
 
 	base_address = base;
 
