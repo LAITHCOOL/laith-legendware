@@ -464,7 +464,7 @@ public:
 	bool is_unsafe_tick(player_t* player);
 	void setupvelocity(player_t* e, adjust_data* record);
 	void update_player_animations(player_t* e);
-	void FixPvs();
+	void FixPvs(player_t* e);
 	void update_animations(player_t* pPlayer);
 
 	float land_time = 0.0f;
