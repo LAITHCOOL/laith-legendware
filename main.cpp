@@ -223,17 +223,21 @@ DWORD WINAPI main(PVOID base)
 	while (!IFH(GetModuleHandle)(crypt_str("serverbrowser.dll")))
 		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-	std::string folder, file;
+	std::string folder1, folder2, folder3;
 
 
 	static TCHAR path[MAX_PATH];
 
 	if (SUCCEEDED(SHGetFolderPath(NULL, CSIDL_APPDATA, NULL, NULL, path)))
 	{
-		folder = std::string(path) + crypt_str("\\itzlaith_lw\\");
+		folder1 = std::string(path) + crypt_str("\\itzlaith_lw\\");
+		folder2 = std::string(path) + crypt_str("\\itzlaith_lw\\configs\\");
+		folder3 = std::string(path) + crypt_str("\\itzlaith_lw\\scripts\\");
 	}
 
-	CreateDirectory(folder.c_str(), NULL);
+	CreateDirectory(folder1.c_str(), NULL);
+        CreateDirectory(folder2.c_str(), NULL);
+	CreateDirectory(folder3.c_str(), NULL);
 
 	base_address = base;
 
