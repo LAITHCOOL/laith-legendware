@@ -536,15 +536,24 @@ void aim::QuickStop(CUserCmd* cmd) {
 	cmd->m_sidemove = negative_side_direction.y;
 }
 
-bool aim::IsSafePoint(adjust_data* record, Vector start_position, Vector end_position, int hitbox) {
-	if (!hitbox_intersection(record->player, record->matrixes_data.zero, hitbox, start_position, end_position))
-		return false;
-	else if (!hitbox_intersection(record->player, record->matrixes_data.first, hitbox, start_position, end_position))
-		return false;
-	else if (!hitbox_intersection(record->player, record->matrixes_data.second, hitbox, start_position, end_position))
-		return false;
-
-	return true;
+bool aim::IsSafePoint(adjust_data* record, Vector start_position, Vector end_position, int hitbox) 
+{
+	if (record->low_delta_s && record->curMode == STANDING) {
+		if (hitbox_intersection(record->player, record->matrixes_data.low_first, hitbox, start_position, end_position)
+			&& hitbox_intersection(record->player, record->matrixes_data.low_second, hitbox, start_position, end_position)
+			&& hitbox_intersection(record->player, record->matrixes_data.zero, hitbox, start_position, end_position))
+			return true;
+		SemiSafe = true;
+	}
+	else {
+		if (hitbox_intersection(record->player, record->matrixes_data.first, hitbox, start_position, end_position)
+			&& hitbox_intersection(record->player, record->matrixes_data.second, hitbox, start_position, end_position)
+			&& hitbox_intersection(record->player, record->matrixes_data.zero, hitbox, start_position, end_position))
+			return true;
+		SemiSafe = false;
+	}
+	
+	return false;
 }
 
 
@@ -1029,7 +1038,17 @@ bool UseDoubleTapHitchance() {
 	return true;
 }
 
+int aim::calc_bt_ticks() {
+	auto records = &player_records[final_target.record->player->EntIndex()];
 
+	for (auto i = 0; i < records->size(); i++)
+	{
+		auto record = &records->at(i);
+
+		if (record->simulation_time == final_target.record->simulation_time)
+			return i;
+	}
+}
 
 void aim::fire(CUserCmd* cmd)
 {
@@ -1167,23 +1186,8 @@ void aim::fire(CUserCmd* cmd)
 		return;
 	}
 
-	auto backtrack_ticks = 0;
-	auto net_channel_info = m_engine()->GetNetChannelInfo();
-
-	if (net_channel_info)
-	{
-		auto original_tickbase = g_ctx.globals.backup_tickbase;
-
-		if (tickbase::get().double_tap_enabled && tickbase::get().double_tap_key)
-			original_tickbase = g_ctx.globals.fixed_tickbase;
-
-		static auto sv_maxunlag = m_cvar()->FindVar(crypt_str("sv_maxunlag"));
-
-		auto correct = math::clamp(net_channel_info->GetLatency(FLOW_OUTGOING) + net_channel_info->GetLatency(FLOW_INCOMING) + util::get_interpolation(), 0.0f, sv_maxunlag->GetFloat());
-		auto delta_time = correct - (TICKS_TO_TIME(original_tickbase) - final_target.record->simulation_time);
-
-		backtrack_ticks = TIME_TO_TICKS(fabs(delta_time));
-	}
+	auto backtrack_ticks = calc_bt_ticks(); 
+	
 	cmd->m_viewangles = aim_angle;
 	cmd->m_buttons |= IN_ATTACK;
 	cmd->m_tickcount = TIME_TO_TICKS(final_target.record->simulation_time + util::get_interpolation());
@@ -1209,12 +1213,23 @@ void aim::fire(CUserCmd* cmd)
 
 	std::stringstream log;
 
-
+  
+	std::string safeT;
+	if (final_target.data.point.safe)
+	{
+		if (SemiSafe)
+			safeT = "0.5";
+		else
+			safeT = "1";
+	}
+	else
+		safeT = "0";
+	
 	log << ("Attemp Fire: ") + (std::string)player_info.szName + (", ");
 	//log << ("hitchance: ") + (final_hitchance == 101 ? ("MA") : std::to_string(final_hitchance)) + (", ");
 	//log << ("hitbox: ") + get_hitbox_name(final_target.data.hitbox) + (", ");
 	//log << ("damage: ") + std::to_string(final_target.data.damage) + (", ");
-	log << ("safe: ") + std::to_string((bool)final_target.data.point.safe) + (", ");
+	log << ("safe: ") + safeT + (", ");
 	log << ("backtrack: ") + std::to_string(backtrack_ticks) + (", ");
 	log << ("resolver type: [") + get_resolver_type(final_target.record->type) + get_resolver_mode(final_target.record->curMode) + std::to_string((float)final_target.record->desync_amount) + ("]");
 	if (final_target.record->low_delta_s)
