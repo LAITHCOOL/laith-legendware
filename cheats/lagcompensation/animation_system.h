@@ -151,6 +151,8 @@ public:
 
 	float b_yaw(player_t* player, float angle, int n);
 
+	float get_velocity(player_t* player);
+
 	bool hrt_res();
 
 	void resolve();
@@ -160,7 +162,9 @@ public:
 
 	void resolve_desync();
 
-	void hurt_resolver();
+	bool hurt_resolver(shot_info* shot);
+
+	//void hurt_resolver();
 
 
 	AnimationLayer resolver_layers[7][13];

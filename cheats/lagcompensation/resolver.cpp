@@ -265,10 +265,14 @@ float CResolver::b_yaw(player_t* player, float angle, int n)
 	else if (n == 2)
 		return flMaxBodyYaw;
 	else if (n == 3)
-		return gfy;
+		return flEyeYaw;
+
+	if (n == 4)
+	{
+		return speed;
+	}// get player speed
 
 }
-
 
 
 bool CResolver::is_slow_walking()
@@ -509,8 +513,8 @@ void CResolver::setmode()
 {
 	auto e = player;
 
-	float speed = e->m_vecVelocity().Length();
-
+	//float speed = e->m_vecVelocity().Length2D();
+	float speed = b_yaw(player, player->m_angEyeAngles().y, 4);
 
 	auto cur_layer = player_record->layers;
 	auto prev_layer = player_record->previous_layers;
@@ -550,7 +554,7 @@ void CResolver::setmode()
 	{
 		player_record->curMode = AIR;
 	}
-	else if ((/*micromovement check pog*/ (speed < 3.1f && ducking) || (speed < 1.2f && !ducking)) && animstate->m_flTimeSinceStartedMoving < 0.22f)
+	else if ((/*micromovement check pog*/ (speed < 3.1f && ducking) || (speed < 1.2f && !ducking)))
 	{
 		player_record->curMode = STANDING;
 
@@ -738,6 +742,5 @@ void CResolver::resolve_desync()
 	player->get_animation_state()->m_flGoalFeetYaw = math::normalize_yaw(e->m_angEyeAngles().y + player_record->desync_amount);
 
 }
-
 
 

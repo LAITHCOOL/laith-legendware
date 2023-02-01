@@ -721,7 +721,7 @@ public:
 
     CBaseHandle* m_hMyWeapons()
     {
-        return (CBaseHandle*)((uintptr_t)this + 0x2E08);
+        return (CBaseHandle*)((uintptr_t)this + 0x2DF8);
     }
 
     __forceinline Vector GetBonePos(matrix3x4_t* mat, int i)
@@ -739,7 +739,7 @@ public:
 
     float& m_flSpawnTime()
     {
-        return *(float*)((uintptr_t)this + 0x103C0);
+        return *(float*)((uintptr_t)this + 0xA360);
     }
 
     CUserCmd& m_lastcmd()

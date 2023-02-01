@@ -4,6 +4,12 @@
 
 std::deque <adjust_data> player_records[65];
 
+enum ADVANCED_ACTIVITY : int
+{
+	ACTIVITY_NONE = 0,
+	ACTIVITY_JUMP,
+	ACTIVITY_LAND
+};
 void lagcompensation::init()
 {
 	static auto threadedBoneSetup = m_cvar()->FindVar("cl_threaded_bone_setup");
@@ -236,10 +242,16 @@ bool lagcompensation::valid(int i, player_t* e)
 	return true;
 }
 
+template < class T >
+static T interpolate(const T& current, const T& target, const int progress, const int maximum)
+{
+	return current + ((target - current) / maximum) * progress;
+}
+
 static auto ticksToTime(int ticks) noexcept { return static_cast<float>(ticks * m_globals()->m_intervalpertick); }
 void lagcompensation::update_player_animations(player_t* e)
 {
-	auto animstate = e->get_animation_state();//get_animation_state
+	auto animstate = e->get_animation_state();
 
 	if (!animstate)
 		return;
@@ -256,16 +268,13 @@ void lagcompensation::update_player_animations(player_t* e)
 
 	adjust_data* previous_record = nullptr;
 
-	if (records->size() >= 2)
+	if (records->size() >= 2 && !records->at(1).invalid)
 		previous_record = &records->at(1);
 
 	auto record = &records->front();
 
-	AnimationLayer animlayers[13];
-	float pose_parametrs[24]; //for storing pose parameters like(static legs and etc)
+	AnimationLayer animlayers[15];
 
-
-	memcpy(pose_parametrs, &e->m_flPoseParameter(), 24 * sizeof(float));
 	memcpy(animlayers, e->get_animlayers(), e->animlayer_count() * sizeof(AnimationLayer));
 	memcpy(record->layers, animlayers, e->animlayer_count() * sizeof(AnimationLayer));
 
@@ -283,6 +292,87 @@ void lagcompensation::update_player_animations(player_t* e)
 
 	m_globals()->m_curtime = e->m_flSimulationTime();
 	m_globals()->m_frametime = m_globals()->m_intervalpertick;
+
+	bool bIsLeftDormancy = is_dormant[e->EntIndex()];
+	if (bIsLeftDormancy)
+	{
+		is_dormant[e->EntIndex()] = false;
+		float flLastUpdateTime = e->m_flSimulationTime() - m_globals()->m_intervalpertick;
+
+		if (e->m_fFlags() & FL_ONGROUND) {
+			e->get_animation_state()->m_bInHitGroundAnimation = false;
+			e->get_animation_state()->m_bOnGround = true;
+
+			float flLandTime = 0.f;
+			if (e->get_animlayers()[ANIMATION_LAYER_MOVEMENT_LAND_OR_CLIMB].m_flCycle > 0.f && e->get_animlayers()[ANIMATION_LAYER_MOVEMENT_LAND_OR_CLIMB].m_flPlaybackRate > 0.f) {
+				int iLandActivity = e->sequence_activity(e->get_animlayers()[ANIMATION_LAYER_MOVEMENT_LAND_OR_CLIMB].m_nSequence);
+
+				if (iLandActivity == ACT_CSGO_LAND_LIGHT || iLandActivity == ACT_CSGO_LAND_HEAVY) {
+					flLandTime = e->get_animlayers()[ANIMATION_LAYER_MOVEMENT_LAND_OR_CLIMB].m_flCycle / e->get_animlayers()[ANIMATION_LAYER_MOVEMENT_LAND_OR_CLIMB].m_flPlaybackRate;
+
+					if (flLandTime > 0.f)
+						flLastUpdateTime = e->m_flSimulationTime() - flLandTime;
+				}
+			}
+
+			e->m_vecVelocity().z = 0.f;
+		}
+		else {
+			float flJumpTime = 0.f;
+			if (e->get_animlayers()[ANIMATION_LAYER_MOVEMENT_JUMP_OR_FALL].m_flCycle > 0.f && e->get_animlayers()[ANIMATION_LAYER_MOVEMENT_JUMP_OR_FALL].m_flPlaybackRate > 0.f) {
+				int iJumpActivity = e->sequence_activity(e->get_animlayers()[ANIMATION_LAYER_MOVEMENT_JUMP_OR_FALL].m_nSequence);
+
+				if (iJumpActivity == ACT_CSGO_JUMP) {
+					flJumpTime = e->get_animlayers()[ANIMATION_LAYER_MOVEMENT_JUMP_OR_FALL].m_flCycle / e->get_animlayers()[ANIMATION_LAYER_MOVEMENT_JUMP_OR_FALL].m_flPlaybackRate;
+
+					if (flJumpTime > 0.f)
+						flLastUpdateTime = e->m_flSimulationTime() - flJumpTime;
+				}
+			}
+
+			e->get_animation_state()->m_bOnGround = false;
+			e->get_animation_state()->time_since_in_air() = flJumpTime - m_globals()->m_intervalpertick;
+		}
+
+		float flWeight = e->get_animlayers()[ANIMATION_LAYER_MOVEMENT_MOVE].m_flWeight;
+		if (e->get_animlayers()[ANIMATION_LAYER_MOVEMENT_MOVE].m_flPlaybackRate < 0.00001f)
+			e->m_vecVelocity() = ZERO;
+		else if (flWeight > 0.f && flWeight < 0.95f) {
+			float flMaxSpeed = 260.f;
+			// get player weapon.
+			auto m_weapon = e->m_hActiveWeapon().Get();
+
+			if (m_weapon)
+			{
+				// get wpninfo.
+				auto m_weapon_info = m_weapon->get_csweapon_info();
+
+				// get the max possible speed whilest player are still accurate.
+				if (m_weapon_info)
+					flMaxSpeed = (e->m_bIsScoped() ? m_weapon_info->flMaxPlayerSpeedAlt : m_weapon_info->flMaxPlayerSpeed);
+			}
+
+			float flPostVelocityLength = e->m_vecVelocity().Length();
+
+			if (flPostVelocityLength > 0.f) {
+				float flMaxSpeedMultiply = 1.f;
+
+				// FL_DUCKING & FL_AIMDUCKING - fully ducked.
+				// !FL_DUCKING & !FL_AIMDUCKING - fully unducked.
+				// FL_DUCKING & !FL_AIMDUCKING - previously fully ducked, unducking in progress.
+				// !FL_DUCKING & FL_AIMDUCKING - previously fully unducked, ducking in progress.
+				if (e->m_fFlags() & (FL_DUCKING | FL_AIMDUCKING))
+					flMaxSpeedMultiply = 0.34f;
+				else if (e->m_bIsWalking())
+					flMaxSpeedMultiply = 0.52f;
+
+				e->m_vecVelocity().x = (e->m_vecVelocity().x / flPostVelocityLength) * (flWeight * (flMaxSpeed * flMaxSpeedMultiply));
+				e->m_vecVelocity().y = (e->m_vecVelocity().y / flPostVelocityLength) * (flWeight * (flMaxSpeed * flMaxSpeedMultiply));
+			}
+		}
+
+		e->get_animation_state()->m_flLastClientSideAnimationUpdateTime = flLastUpdateTime;
+	}
 
 	if (previous_record)
 	{
@@ -325,31 +415,6 @@ void lagcompensation::update_player_animations(player_t* e)
 				e->m_vecVelocity().y *= animation_speed;
 			}
 
-			/*	if (record->flags & FL_ONGROUND)
-			{
-				if (record->layers[6].m_flWeight == 0.f)
-					velocity = Vector(0.f, 0.f, 0.f);
-				else
-				{
-					auto weight = record->layers[11].m_flWeight;
-
-					auto average_speed = velocity.Length2D();
-
-					auto speed_as_trans = 0.55f - (1.f - weight) * 0.35f;
-
-					// https://github.com/perilouswithadollarsign/cstrike15_src/blob/master/game/shared/cstrike15/csgo_playeranimstate.cpp#L1205-L1206
-					if (weight > 0.0f && weight < 1.0f || (average_speed < speed_as_trans * 0.34f))
-					{
-						velocity.x /= average_speed;
-						velocity.y /= average_speed;
-
-						velocity.x *= speed_as_trans;
-						velocity.y *= speed_as_trans;
-					}
-				}
-			}*/
-		
-
 			if (records->size() >= 3 && time_difference > m_globals()->m_intervalpertick)
 			{
 				auto previous_velocity = (previous_record->origin - records->at(2).origin) * (1.0f / time_difference);
@@ -372,9 +437,10 @@ void lagcompensation::update_player_animations(player_t* e)
 				}
 			}
 
+
 			if (!(e->m_fFlags() & FL_ONGROUND))
 			{
-				static auto sv_gravity = m_cvar()->FindVar(crypt_str("sv_gravity"));
+				static auto sv_gravity = m_cvar()->FindVar("sv_gravity");
 
 				auto fixed_timing = math::clamp(time_difference, m_globals()->m_intervalpertick, 1.0f);
 				e->m_vecVelocity().z -= sv_gravity->GetFloat() * fixed_timing * 0.5f;
@@ -384,54 +450,41 @@ void lagcompensation::update_player_animations(player_t* e)
 		}
 	}
 
-	const auto simtime_delta = e->m_flSimulationTime() - e->m_flOldSimulationTime();
-	const auto choked_ticks = ((simtime_delta / m_globals()->m_intervalpertick) + 0.5);
-	const auto simulation_tick_delta = choked_ticks - 2;
-	const auto delta_ticks = (std::clamp(TIME_TO_TICKS(m_engine()->GetNetChannelInfo()->GetLatency(1) + m_engine()->GetNetChannelInfo()->GetLatency(0)) + m_globals()->m_tickcount - TIME_TO_TICKS(e->m_flSimulationTime() + util::get_interpolation()), 0, 100)) - simulation_tick_delta;
-
-	if (delta_ticks > 0 && records->size() >= 2)
+	if (e->m_fFlags() & FL_ONGROUND)
 	{
-		auto ticks_left = static_cast<int>(simulation_tick_delta);
-
-		ticks_left = std::clamp(ticks_left, 1, 10);
-
-		do
+		if (animlayers[6].m_flPlaybackRate == 0.f)
 		{
-			auto data_origin = record->origin;
-			auto data_velocity = record->velocity;
-			auto data_flags = record->flags;
+			e->m_vecVelocity().Zero();
+		}
+		else
+		{
+			const auto avg_speed = e->m_vecVelocity().Length2D();
+			if (avg_speed != 0.f)
+			{
+				const auto weight = animlayers[11].m_flWeight;
 
-			extrapolate(e, data_origin, data_velocity, data_flags, !(e->m_fFlags() & FL_ONGROUND));
+				const auto speed_as_portion = 0.58f - (weight - 1.f) * 0.38f;
 
-			record->simulation_time += m_globals()->m_intervalpertick;
-			record->origin = data_origin;
-			record->velocity = data_velocity;
-			--ticks_left;
-		} while (ticks_left > 0);
+				const auto avg_speed_modifier = speed_as_portion * e->GetMaxPlayerSpeed();
+
+				if (weight >= 1.f && avg_speed > avg_speed_modifier || weight < 1.f && (avg_speed_modifier > avg_speed || weight > 0.f))
+				{
+					e->m_vecVelocity().x /= avg_speed;
+					e->m_vecVelocity().y /= avg_speed;
+
+					e->m_vecVelocity().x *= avg_speed_modifier;
+					e->m_vecVelocity().y *= avg_speed_modifier;
+				}
+			}
+		}
 	}
 
-	e->m_iEFlags() &= ~0x1000;
+	e->m_iEFlags() &= ~0x1800;
 
-	if (e->m_fFlags() & FL_ONGROUND && e->m_vecVelocity().Length() > 0.0f && animlayers[6].m_flWeight <= 0.0f)
+	if (animlayers[6].m_flWeight == 0.0f || animlayers[6].m_flPlaybackRate == 0.0f)
 		e->m_vecVelocity().Zero();
 
-	e->m_vecAbsVelocity() = e->m_vecVelocity();
-	e->invalidate_physics_recursive(4);
-	e->m_bClientSideAnimation() = true;
-
-	if (is_dormant[e->EntIndex()])
-	{
-		is_dormant[e->EntIndex()] = false;
-
-		if (e->m_fFlags() & FL_ONGROUND)
-		{
-			animstate->m_bOnGround = true;
-			animstate->m_bInHitGroundAnimation = false;
-		}
-
-		animstate->time_since_in_air() = 0.0f;
-		animstate->m_flGoalFeetYaw = math::normalize_yaw(GetAngle(e));
-	}
+	e->m_iEFlags() &= ~0x1000;
 
 	auto updated_animations = false;
 
@@ -440,10 +493,10 @@ void lagcompensation::update_player_animations(player_t* e)
 
 	if (previous_record)
 	{
-		memcpy(&e->m_flPoseParameter(), pose_parametrs, 24 * sizeof(float));
+		auto ticks_chocked = 1;
+
 		memcpy(e->get_animlayers(), previous_record->layers, e->animlayer_count() * sizeof(AnimationLayer));
 
-		auto ticks_chocked = 1;
 		auto simulation_ticks = TIME_TO_TICKS(e->m_flSimulationTime() - previous_record->simulation_time);
 
 		if (simulation_ticks > 0 && simulation_ticks < 17)
@@ -451,52 +504,106 @@ void lagcompensation::update_player_animations(player_t* e)
 
 		if (ticks_chocked > 1)
 		{
-			if (animstate->m_iLastClientSideAnimationUpdateFramecount == m_globals()->m_framecount)
-				animstate->m_iLastClientSideAnimationUpdateFramecount -= 1;
+			int iActivityTick = 0;
+			int iActivityType = 0;
 
-			if (animstate->m_flLastClientSideAnimationUpdateTime == m_globals()->m_curtime)
-				animstate->m_flLastClientSideAnimationUpdateTime += ticksToTime(1);
+			if (animlayers[ANIMATION_LAYER_MOVEMENT_LAND_OR_CLIMB].m_flWeight > 0.f && previous_record->layers[ANIMATION_LAYER_MOVEMENT_LAND_OR_CLIMB].m_flWeight <= 0.f) {
+				int iLandSequence = animlayers[ANIMATION_LAYER_MOVEMENT_LAND_OR_CLIMB].m_nSequence;
 
+				if (iLandSequence > 2) {
+					int iLandActivity = e->sequence_activity(iLandSequence);
 
+					if (iLandActivity == ACT_CSGO_LAND_LIGHT || iLandActivity == ACT_CSGO_LAND_HEAVY) {
+						float flCurrentCycle = animlayers[ANIMATION_LAYER_MOVEMENT_LAND_OR_CLIMB].m_flCycle;
+						float flCurrentRate = animlayers[ANIMATION_LAYER_MOVEMENT_LAND_OR_CLIMB].m_flPlaybackRate;
 
-			if (animlayers[4].m_flCycle < 0.5f && (!(e->m_fFlags() & FL_ONGROUND) || !(previous_record->flags & FL_ONGROUND)))
-			{
-				land_time = e->m_flSimulationTime() - animlayers[4].m_flPlaybackRate * animlayers[4].m_flCycle;
-				land_in_cycle = land_time >= previous_record->simulation_time;
+						if (flCurrentCycle > 0.f && flCurrentRate > 0.f) {
+							float flLandTime = (flCurrentCycle / flCurrentRate);
+
+							if (flLandTime > 0.f) {
+								iActivityTick = TIME_TO_TICKS(e->m_flSimulationTime() - flLandTime) + 1;
+								iActivityType = ACTIVITY_LAND;
+							}
+						}
+					}
+				}
 			}
 
-			auto duck_amount_per_tick = (e->m_flDuckAmount() - previous_record->duck_amount) / ticks_chocked;
+			if (animlayers[ANIMATION_LAYER_MOVEMENT_JUMP_OR_FALL].m_flCycle > 0.f && animlayers[ANIMATION_LAYER_MOVEMENT_JUMP_OR_FALL].m_flPlaybackRate > 0.f) {
+				int iJumpSequence = animlayers[ANIMATION_LAYER_MOVEMENT_JUMP_OR_FALL].m_nSequence;
+
+				if (iJumpSequence > 2) {
+					int iJumpActivity = e->sequence_activity(iJumpSequence);
+
+					if (iJumpActivity == ACT_CSGO_JUMP) {
+						float flCurrentCycle = animlayers[ANIMATION_LAYER_MOVEMENT_JUMP_OR_FALL].m_flCycle;
+						float flCurrentRate = animlayers[ANIMATION_LAYER_MOVEMENT_JUMP_OR_FALL].m_flPlaybackRate;
+
+						if (flCurrentCycle > 0.f && flCurrentRate > 0.f) {
+							float flJumpTime = (flCurrentCycle / flCurrentRate);
+
+							if (flJumpTime > 0.f) {
+								iActivityTick = TIME_TO_TICKS(e->m_flSimulationTime() - flJumpTime) + 1;
+								iActivityType = ACTIVITY_JUMP;
+							}
+						}
+					}
+				}
+			}
 
 			for (auto i = 0; i < ticks_chocked; ++i)
 			{
 				auto simulated_time = previous_record->simulation_time + TICKS_TO_TIME(i);
 
-				if (duck_amount_per_tick != 0.f) //-V550
-					e->m_flDuckAmount() = previous_record->duck_amount + duck_amount_per_tick * (float)i;
+				// lerp duck amt.
+				e->m_flDuckAmount() = interpolate(previous_record->duck_amount, e->m_flDuckAmount(), i, ticks_chocked);
 
-				on_ground = e->m_fFlags() & FL_ONGROUND;
+				// lerp velocity.
+				e->m_vecVelocity() = interpolate(previous_record->velocity, e->m_vecVelocity(), i, ticks_chocked);
+				e->m_vecAbsVelocity() = e->m_vecVelocity();//e->m_vecAbsVelocity() = interpolate(previous_record->velocity, e->m_vecVelocity(), i, ticks_chocked);
+				e->set_abs_origin(e->m_vecOrigin());
 
-				if (land_in_cycle && !is_landed)
-				{
-					if (land_time <= simulated_time)
-					{
-						is_landed = true;
-						on_ground = true;
+
+				int iCurrentSimulationTick = TIME_TO_TICKS(simulated_time);
+
+				if (iActivityType > ACTIVITY_NONE) {
+					bool bIsOnGround = e->m_fFlags() & FL_ONGROUND;
+
+					if (iActivityType == ACTIVITY_JUMP) {
+						if (iCurrentSimulationTick == iActivityTick - 1)
+							bIsOnGround = true;
+						else if (iCurrentSimulationTick == iActivityTick)
+						{
+							// reset animation layer.
+							e->get_animlayers()[ANIMATION_LAYER_MOVEMENT_JUMP_OR_FALL].m_flCycle = 0.f;
+							e->get_animlayers()[ANIMATION_LAYER_MOVEMENT_JUMP_OR_FALL].m_nSequence = animlayers[ANIMATION_LAYER_MOVEMENT_JUMP_OR_FALL].m_nSequence;
+							e->get_animlayers()[ANIMATION_LAYER_MOVEMENT_JUMP_OR_FALL].m_flPlaybackRate = animlayers[ANIMATION_LAYER_MOVEMENT_JUMP_OR_FALL].m_flPlaybackRate;
+
+							// reset player ground state.
+							bIsOnGround = false;
+						}
+
 					}
+					else if (iActivityType == ACTIVITY_LAND) {
+						if (iCurrentSimulationTick == iActivityTick - 1)
+							bIsOnGround = false;
+						else if (iCurrentSimulationTick == iActivityTick)
+						{
+							// reset animation layer.
+							e->get_animlayers()[ANIMATION_LAYER_MOVEMENT_LAND_OR_CLIMB].m_flCycle = 0.f;
+							e->get_animlayers()[ANIMATION_LAYER_MOVEMENT_LAND_OR_CLIMB].m_nSequence = animlayers[ANIMATION_LAYER_MOVEMENT_LAND_OR_CLIMB].m_nSequence;
+							e->get_animlayers()[ANIMATION_LAYER_MOVEMENT_LAND_OR_CLIMB].m_flPlaybackRate = animlayers[ANIMATION_LAYER_MOVEMENT_LAND_OR_CLIMB].m_flPlaybackRate;
+
+							// reset player ground state.
+							bIsOnGround = true;
+						}
+					}
+
+					if (bIsOnGround)
+						e->m_fFlags() |= FL_ONGROUND;
 					else
-						on_ground = previous_record->flags & FL_ONGROUND;
-				}
-
-				//land fix creds lw4
-				auto v490 = e->sequence_activity(record->layers[5].m_nSequence);
-
-				if (record->layers[5].m_nSequence == previous_record->layers[5].m_nSequence && (previous_record->layers[5].m_flWeight != 0.0f || record->layers[5].m_flWeight == 0.0f)
-					|| !(v490 == ACT_CSGO_LAND_LIGHT || v490 == ACT_CSGO_LAND_HEAVY)) {
-					if ((record->flags & 1) != 0 && (previous_record->flags & FL_ONGROUND) == 0)
 						e->m_fFlags() &= ~FL_ONGROUND;
 				}
-				else
-					e->m_fFlags() |= FL_ONGROUND;
 
 				auto simulated_ticks = TIME_TO_TICKS(simulated_time);
 
@@ -507,7 +614,11 @@ void lagcompensation::update_player_animations(player_t* e)
 				m_globals()->m_interpolation_amount = 0.0f;
 
 				g_ctx.globals.updating_animation = true;
+				if (animstate->m_iLastClientSideAnimationUpdateFramecount >= m_globals()->m_framecount) //-V614
+					animstate->m_iLastClientSideAnimationUpdateFramecount = m_globals()->m_framecount - 1;
+				e->m_bClientSideAnimation() = true;
 				e->update_clientside_animation();
+				e->m_bClientSideAnimation() = false;
 				g_ctx.globals.updating_animation = false;
 
 				m_globals()->m_realtime = backup_realtime;
@@ -523,8 +634,13 @@ void lagcompensation::update_player_animations(player_t* e)
 
 	if (!updated_animations)
 	{
+		e->m_vecAbsVelocity() = e->m_vecVelocity();
 		g_ctx.globals.updating_animation = true;
+		if (animstate->m_iLastClientSideAnimationUpdateFramecount >= m_globals()->m_framecount) //-V614
+			animstate->m_iLastClientSideAnimationUpdateFramecount = m_globals()->m_framecount - 1;
+		e->m_bClientSideAnimation() = true;
 		e->update_clientside_animation();
+		e->m_bClientSideAnimation() = false;
 		g_ctx.globals.updating_animation = false;
 	}
 
@@ -558,12 +674,6 @@ void lagcompensation::update_player_animations(player_t* e)
 			break;
 		case LOW_SECOND:
 			e->setup_bones_rebuilt(record->matrixes_data.low_second, BONE_USED_BY_HITBOX);
-			break;
-		case LOW_FIRST_20:
-			e->setup_bones_rebuilt(record->matrixes_data.low_first_20, BONE_USED_BY_HITBOX);
-			break;
-		case LOW_SECOND_20:
-			e->setup_bones_rebuilt(record->matrixes_data.low_second_20, BONE_USED_BY_HITBOX);
 			break;
 		}
 
@@ -684,30 +794,33 @@ void lagcompensation::update_player_animations(player_t* e)
 		//e->m_angEyeAngles().x = player_resolver[e->EntIndex()].resolve_pitch();
 	}
 
-    g_ctx.globals.updating_animation = true;
-    e->update_clientside_animation();
-    g_ctx.globals.updating_animation = false;
+	g_ctx.globals.updating_animation = true;
+	e->m_bClientSideAnimation() = true;
+	e->update_clientside_animation();
+	e->m_bClientSideAnimation() = false;
+	g_ctx.globals.updating_animation = false;
 
-    setup_matrix(e, animlayers, MAIN);
-    memcpy(e->m_CachedBoneData().Base(), record->matrixes_data.main, e->m_CachedBoneData().Count() * sizeof(matrix3x4_t));
+	setup_matrix(e, animlayers, MAIN);
+	memcpy(e->m_CachedBoneData().Base(), record->matrixes_data.main, e->m_CachedBoneData().Count() * sizeof(matrix3x4_t));
 
-    m_globals()->m_curtime = backup_curtime;
-    m_globals()->m_frametime = backup_frametime;
+	m_globals()->m_curtime = backup_curtime;
+	m_globals()->m_frametime = backup_frametime;
 
-    e->m_flLowerBodyYawTarget() = backup_lower_body_yaw_target;
-    e->m_flDuckAmount() = backup_duck_amount;
-    e->m_fFlags() = backup_flags;
-    e->m_iEFlags() = backup_eflags;
-    //e->set_abs_origin(backup_absorigin);
-    //e->set_abs_angles(backup_absangles);
+	e->m_flLowerBodyYawTarget() = backup_lower_body_yaw_target;
+	e->m_flDuckAmount() = backup_duck_amount;
+	e->m_fFlags() = backup_flags;
+	e->m_iEFlags() = backup_eflags;
 
-    memcpy(e->get_animlayers(), animlayers, e->animlayer_count() * sizeof(AnimationLayer));
-    memcpy(player_resolver[e->EntIndex()].previous_layers, animlayers, e->animlayer_count() * sizeof(AnimationLayer));
+	memcpy(e->get_animlayers(), animlayers, e->animlayer_count() * sizeof(AnimationLayer));
 
-    record->store_data(e, false);
 
-    if (e->m_flSimulationTime() < e->m_flOldSimulationTime())
-        record->invalid = true;
+	e->invalidate_physics_recursive(8);
+	e->invalidate_bone_cache();
+
+	if (e->m_flSimulationTime() < e->m_flOldSimulationTime())
+		record->invalid = true;
+
+	record->store_data(e, true);
 }
 
 void lagcompensation::FixPvs()

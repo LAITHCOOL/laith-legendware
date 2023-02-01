@@ -9,6 +9,7 @@
 #include "..\fakewalk\slowwalk.h"
 #include "..\lagcompensation\local_animations.h"
 #include "..\visuals\other_esp.h"
+#include "../tickbase shift/tickbase_shift.h"
 
 
 
@@ -616,8 +617,8 @@ void aim::scan(adjust_data* record, scan_data& data, const Vector& shoot_positio
 
 		for (auto& point : current_points)
 		{
-			point.safe = (hitbox_intersection(record->player, record->matrixes_data.zero, hitbox, shoot_position, point.point) && hitbox_intersection(record->player, record->matrixes_data.first, hitbox, shoot_position, point.point) && hitbox_intersection(record->player, record->matrixes_data.second, hitbox, shoot_position, point.point));
-
+			//point.safe = (hitbox_intersection(record->player, record->matrixes_data.main, hitbox, shoot_position, point.point) && hitbox_intersection(record->player, record->matrixes_data.first, hitbox, shoot_position, point.point) && hitbox_intersection(record->player, record->matrixes_data.second, hitbox, shoot_position, point.point));
+			point.safe = IsSafePoint(record, shoot_position , point.point, hitbox);
 			if (!force_safe_points || point.safe)
 				points.emplace_back(point);
 		}
@@ -689,6 +690,9 @@ void aim::scan(adjust_data* record, scan_data& data, const Vector& shoot_positio
 		if (get_hitgroup(fire_data.hitbox) != get_hitgroup(point.hitbox))
 			continue;
 
+		if (force_safe_points && !point.safe)
+			continue;
+
 		auto current_minimum_damage = fire_data.visible ? minimum_visible_damage : minimum_damage;
 
 		
@@ -697,8 +701,6 @@ void aim::scan(adjust_data* record, scan_data& data, const Vector& shoot_positio
 		{
 			should_stop = GetTicksToShoot() <= GetTicksToStop() || g_cfg.ragebot.weapon[g_ctx.globals.current_weapon].autostop_modifiers.at(1) && !g_ctx.globals.weapon->can_fire(true);
 
-			if (force_safe_points && !point.safe)
-				continue;
 
 			if (((record->flags & FL_ONGROUND && g_cfg.ragebot.weapon[g_ctx.globals.current_weapon].prefer_safe_points && point.safe) || (record->flags & FL_ONGROUND && point.hitbox >= HITBOX_PELVIS && point.hitbox <= HITBOX_UPPER_CHEST) || ((!(record->flags & FL_ONGROUND) || record->shot) && point.hitbox == HITBOX_HEAD)) && fire_data.damage >= record->player->m_iHealth())
 			{
@@ -720,6 +722,36 @@ void aim::scan(adjust_data* record, scan_data& data, const Vector& shoot_positio
 				data.hitbox = fire_data.hitbox;
 			}
 		}
+
+		//
+		else if (g_cfg.ragebot.weapon[g_ctx.globals.current_weapon].prefer_safe_points) {
+			if (point.safe && point.hitbox >= HITBOX_PELVIS && point.hitbox <= HITBOX_UPPER_CHEST && g_cfg.ragebot.weapon[g_ctx.globals.current_weapon].prefer_body_aim) {
+				if ((fire_data.damage > best_damage && body_hitboxes != point.hitbox) || fire_data.damage > best_damage + 20.f) {
+					if (fire_data.damage >= minimum_damage)
+					{
+						best_damage = best_damage = fire_data.damage;
+						data.point = point;
+						data.visible = fire_data.visible;
+						data.damage = fire_data.damage;
+						data.hitbox = fire_data.hitbox;
+						body_hitboxes = point.hitbox;
+					}
+				}
+			}
+		}
+		else if (point.hitbox >= HITBOX_PELVIS && point.hitbox <= HITBOX_UPPER_CHEST && g_cfg.ragebot.weapon[g_ctx.globals.current_weapon].prefer_body_aim) {
+			if ((fire_data.damage > best_damage && body_hitboxes != point.hitbox) || fire_data.damage > best_damage + 20.f) {
+				if (fire_data.damage >= minimum_damage)
+				{
+					best_damage = best_damage = fire_data.damage;
+					data.point = point;
+					data.visible = fire_data.visible;
+					data.damage = fire_data.damage;
+					data.hitbox = fire_data.hitbox;
+					body_hitboxes = point.hitbox;
+				}
+			}
+		}//
 	}
 }
 
@@ -839,197 +871,6 @@ float aim::GetHeadScale(player_t* player)
 	else
 		return 0.75f;
 }
-std::vector <scan_point> aim::get_points(adjust_data* record, int hitbox)//weave love you
-{
-	std::vector <scan_point> points; //-V827
-
-	auto model = record->player->GetModel();
-	if (!model)
-		return points;
-
-	auto hdr = m_modelinfo()->GetStudioModel(model);
-
-	if (!hdr)
-		return points;
-
-	auto set = hdr->pHitboxSet(record->player->m_nHitboxSet());
-
-	if (!set)
-		return points;
-
-	auto bbox = set->pHitbox(hitbox);
-
-	if (!bbox)
-		return points;
-
-	auto center = (bbox->bbmin + bbox->bbmax) * 0.5f;
-
-	if (bbox->radius <= 0.0f)
-	{
-		// references: 
-		//      https://developer.valvesoftware.com/wiki/Rotation_Tutorial
-		//      CBaseAnimating::GetHitboxBonePosition
-		//      CBaseAnimating::DrawServerHitboxes
-
-		// convert rotation angle to a matrix.
-		matrix3x4_t rot_matrix;
-		math::AngleMatrix(bbox->rotation, rot_matrix);
-
-		// apply the rotation to the entity input space (local).
-		matrix3x4_t mat;
-		math::ConcatTransforms(record->matrixes_data.main[bbox->bone], rot_matrix, mat);
-
-		// extract origin from matrix.
-		Vector origin = mat.GetOrigin();
-
-		// compute raw center point.
-		Vector center = (bbox->bbmin + bbox->bbmax) / 2.f;
-
-		if (hitbox == HITBOX_RIGHT_FOOT || hitbox == HITBOX_LEFT_FOOT)
-		{
-			float d1 = (bbox->bbmin.z - center.z) * 0.875f;
-
-			// invert.
-			if (hitbox == HITBOX_LEFT_FOOT)
-				d1 *= -1.f;
-
-			// side is more optimal then center.
-			points.emplace_back(scan_point(Vector(center.x, center.y, center.z + d1), hitbox, false));
-
-			float d2 = (bbox->bbmin.x - center.x) * 0.5f;
-			float d3 = (bbox->bbmax.x - center.x) * 0.5f;
-
-			// heel.
-			points.emplace_back(scan_point(Vector(center.x + d2, center.y, center.z), hitbox, false));
-
-			// toe.
-			points.emplace_back(scan_point(Vector(center.x + d3, center.y, center.z), hitbox, false));
-		}
-
-		// nothing to do here we are done.
-		if (points.empty())
-			return points;
-
-		for (auto& p : points)
-		{
-			// VectorRotate.
-			// rotate point by angle stored in matrix.
-			p.point = { p.point.Dot(mat[0]), p.point.Dot(mat[1]), p.point.Dot(mat[2]) };
-
-			// transform point to world space.
-			p.point += origin;
-		}
-	}
-	else
-	{
-		// compute raw center point.
-		Vector max = bbox->bbmax;
-		Vector min = bbox->bbmin;
-		Vector center = (bbox->bbmin + bbox->bbmax) / 2.f;
-
-		// head has 5 points.
-		if (hitbox == HITBOX_HEAD) {
-			// add center.
-			float r = bbox->radius * GetHeadScale(record->player);
-			points.emplace_back(scan_point(center, hitbox, true));
-
-			if (true) {
-				// rotation matrix 45 degrees.
-				// https://math.stackexchange.com/questions/383321/rotating-x-y-points-45-degrees
-				// std::cos( deg_to_rad( 45.f ) )
-				constexpr float rotation = 0.70710678f;
-
-				// top/back 45 deg.
-				// this is the best spot to shoot at.
-				points.emplace_back(scan_point(Vector{ max.x + (rotation * r * 0.7f), max.y + (-rotation * r * 0.7f), max.z }, hitbox, false));
-
-				Vector right{ max.x, max.y, max.z + r };
-
-				// right.
-				points.emplace_back(scan_point(right, hitbox, false));
-
-				Vector left{ max.x, max.y, max.z - r };
-
-				// left.
-				points.emplace_back(scan_point(left, hitbox, false));
-
-				// back.
-				points.emplace_back(scan_point(Vector{ max.x, max.y - r, max.z }, hitbox, false));
-
-				// get animstate ptr.
-				c_baseplayeranimationstate* state = record->player->get_animation_state();
-
-				// add this point only under really specific circumstances.
-				// if we are standing still and have the lowest possible pitch pose.
-				if (state && record->player->m_vecVelocity().Length() <= 0.1f && record->player->m_angEyeAngles().x <= 75.f) {
-
-					// bottom point.
-					points.emplace_back(scan_point(Vector{ max.x - r, max.y, max.z }, hitbox, false));
-				}
-			}
-		}
-
-		// body has 5 points.
-		else {
-			float r = bbox->radius * GetBodyScale(record->player);
-
-			if (hitbox == HITBOX_STOMACH) {
-				// center.
-				points.emplace_back(scan_point(center, hitbox, true));
-				points.emplace_back(scan_point(Vector(center.x, center.y, min.z + r), hitbox, false));
-				points.emplace_back(scan_point(Vector(center.x, center.y, max.z - r), hitbox, false));
-				// back.
-				points.emplace_back(scan_point(Vector{ center.x, max.y - r, center.z }, hitbox, true));
-			}
-
-			else if (hitbox == HITBOX_PELVIS || hitbox == HITBOX_UPPER_CHEST) {
-				points.emplace_back(scan_point(center, hitbox, true));
-				// left & right points
-				points.emplace_back(scan_point(Vector(center.x, center.y, max.z + r), hitbox, false));
-				points.emplace_back(scan_point(Vector(center.x, center.y, min.z - r), hitbox, false));
-			}
-
-			// other stomach/chest hitboxes have 2 points.
-			else if (hitbox == HITBOX_LOWER_CHEST || hitbox == HITBOX_CHEST) {
-				// left & right points
-				points.emplace_back(scan_point(Vector(center.x, center.y, max.z + r), hitbox, false));
-				points.emplace_back(scan_point(Vector(center.x, center.y, min.z - r), hitbox, false));
-				// add extra point on back.
-				points.emplace_back(scan_point(Vector{ center.x, max.y - r, center.z }, hitbox, false));
-			}
-
-			else if (hitbox == HITBOX_RIGHT_CALF || hitbox == HITBOX_LEFT_CALF) {
-				// add center.
-				points.emplace_back(scan_point(center, hitbox, true));
-
-				// half bottom.
-				points.emplace_back(scan_point(Vector{ max.x - (bbox->radius / 2.f), max.y, max.z }, hitbox, false));
-			}
-
-			else if (hitbox == HITBOX_RIGHT_THIGH || hitbox == HITBOX_LEFT_THIGH) {
-				// add center.
-				points.emplace_back(scan_point(center, hitbox, true));
-
-				// bottom point (knees)
-				points.emplace_back(scan_point(Vector{ max.x + (bbox->radius / 3.f), max.y, max.z }, hitbox, false));
-			}
-
-			// arms get only one point.
-			else if (hitbox == HITBOX_RIGHT_UPPER_ARM || hitbox == HITBOX_LEFT_UPPER_ARM) {
-				// elbow.
-				points.emplace_back(scan_point(Vector{ max.x + (bbox->radius / 2.f), center.y, center.z }, hitbox, false));
-			}
-		}
-		// nothing left to do here.
-		if (points.empty())
-			return points;
-
-		for (auto& point : points)
-			math::vector_transform(point.point, record->matrixes_data.main[bbox->bone], point.point);
-	}
-
-	return points;
-}
 
 
 static bool compare_targets(const scanned_target& first, const scanned_target& second)
@@ -1077,7 +918,7 @@ static int clip_ray_to_hitbox(const Ray_t& ray, mstudiobbox_t* hitbox, matrix3x4
 	return reinterpret_cast <int(__fastcall*)(const Ray_t&, mstudiobbox_t*, matrix3x4_t&, trace_t&)> (fn)(ray, hitbox, matrix, trace);
 }
 
-bool aim::hitbox_intersection(player_t* e, matrix3x4_t* matrix, int hitbox, const Vector& start, const Vector& end, float* safe)
+bool aim::hitbox_intersection(player_t* e, matrix3x4_t* matrix, int hitbox, const Vector& start, const Vector& end)
 {
 	auto model = e->GetModel();
 
@@ -1099,28 +940,32 @@ bool aim::hitbox_intersection(player_t* e, matrix3x4_t* matrix, int hitbox, cons
 	if (!studio_hitbox)
 		return false;
 
-	trace_t trace;
-
-	Ray_t ray;
-	ray.Init(start, end);
-
-	auto intersected = clip_ray_to_hitbox(ray, studio_hitbox, matrix[studio_hitbox->bone], trace) >= 0;
-
-	if (!safe)
-		return intersected;
-
 	Vector min, max;
 
-	math::vector_transform(studio_hitbox->bbmin, matrix[studio_hitbox->bone], min);
-	math::vector_transform(studio_hitbox->bbmax, matrix[studio_hitbox->bone], max);
+	const auto is_capsule = studio_hitbox->radius != -1.f;
 
-	auto center = (min + max) * 0.5f;
-	auto distance = center.DistTo(end);
+	if (is_capsule)
+	{
+		math::vector_transform(studio_hitbox->bbmin, matrix[studio_hitbox->bone], min);
+		math::vector_transform(studio_hitbox->bbmax, matrix[studio_hitbox->bone], max);
+		const auto dist = math::segment_to_segment(start, end, min, max);
 
-	if (distance > *safe)
-		*safe = distance;
+		if (dist < studio_hitbox->radius)
+			return true;
+	}
+	else
+	{
+		math::vector_transform(math::vector_rotate(studio_hitbox->bbmin, studio_hitbox->rotation), matrix[studio_hitbox->bone], min);
+		math::vector_transform(math::vector_rotate(studio_hitbox->bbmax, studio_hitbox->rotation), matrix[studio_hitbox->bone], max);
 
-	return intersected;
+		math::vector_i_transform(start, matrix[studio_hitbox->bone], min);
+		math::vector_i_rotate(end, matrix[studio_hitbox->bone], max);
+
+		if (math::intersect_line_with_bb(min, max, studio_hitbox->bbmin, studio_hitbox->bbmax))
+			return true;
+	}
+
+	return false;
 }
 
 
@@ -1329,8 +1174,8 @@ void aim::fire(CUserCmd* cmd)
 	{
 		auto original_tickbase = g_ctx.globals.backup_tickbase;
 
-		if (misc::get().double_tap_enabled && misc::get().double_tap_key)
-			original_tickbase = g_ctx.globals.backup_tickbase + g_cfg.ragebot.shift_amount;
+		if (tickbase::get().double_tap_enabled && tickbase::get().double_tap_key)
+			original_tickbase = g_ctx.globals.fixed_tickbase;
 
 		static auto sv_maxunlag = m_cvar()->FindVar(crypt_str("sv_maxunlag"));
 
@@ -1381,6 +1226,7 @@ void aim::fire(CUserCmd* cmd)
 	g_ctx.globals.aimbot_working = true;
 	g_ctx.globals.revolver_working = false;
 	g_ctx.globals.last_aimbot_shot = m_globals()->m_tickcount;
+	g_ctx.globals.shot_command = cmd->m_command_number;
 
 	if (g_cfg.misc.events_to_log[EVENTLOG_HIT])
 		eventlogs::get().add(log.str());
@@ -1646,4 +1492,183 @@ bool hit_chance::can_hit(adjust_data* log, weapon_t* weapon, Vector angles, int 
 	}
 
 	return false;
+}
+
+#include "ray_tracer.hpp"
+
+std::vector <scan_point> aim::get_points(adjust_data* record, int hitbox)
+{
+	std::vector <scan_point> points;
+	auto model = record->player->GetModel();
+
+	if (!model)
+		return points;
+
+	auto hdr = m_modelinfo()->GetStudioModel(model);
+
+	if (!hdr)
+		return points;
+
+	auto set = hdr->pHitboxSet(record->player->m_nHitboxSet());
+
+	if (!set)
+		return points;
+
+	auto bbox = set->pHitbox(hitbox);
+
+	if (!bbox)
+		return points;
+
+	auto center = (bbox->bbmin + bbox->bbmax) * 0.5f;
+
+	auto POINT_SCALE = 0.0f;
+
+	if (g_cfg.ragebot.weapon[g_ctx.globals.current_weapon].static_point_scale)
+	{
+		if (hitbox == HITBOX_HEAD)
+			POINT_SCALE = g_cfg.ragebot.weapon[g_ctx.globals.current_weapon].head_scale;
+		else
+			POINT_SCALE = g_cfg.ragebot.weapon[g_ctx.globals.current_weapon].body_scale;
+	}
+	else
+	{
+		auto transformed_center = center;
+		math::vector_transform(transformed_center, record->matrixes_data.main[bbox->bone], transformed_center);
+
+		auto spread = g_ctx.globals.spread + g_ctx.globals.inaccuracy;
+		auto distance = transformed_center.DistTo(g_ctx.globals.eye_pos);
+
+		distance /= math::fast_sin(DEG2RAD(90.0f - RAD2DEG(spread)));
+		spread = math::fast_sin(spread);
+
+		auto radius = max(bbox->radius - distance * spread, 0.0f);
+		POINT_SCALE = math::clamp(radius / bbox->radius, 0.0f, 1.0f);
+	}
+
+	if (bbox->radius <= 0.0f)
+	{
+		auto rotation_matrix = math::angle_matrix(bbox->rotation);
+
+		matrix3x4_t matrix;
+		math::concat_transforms(record->matrixes_data.main[bbox->bone], rotation_matrix, matrix);
+
+		auto origin = matrix.GetOrigin();
+
+		if (hitbox == HITBOX_RIGHT_FOOT || hitbox == HITBOX_LEFT_FOOT)
+		{
+			auto side = (bbox->bbmin.z - center.z) * 0.875f;
+
+			if (hitbox == HITBOX_LEFT_FOOT)
+				side = -side;
+
+			points.emplace_back(scan_point(Vector(center.x, center.y, center.z + side), hitbox, true));
+
+			auto min = (bbox->bbmin.x - center.x) * 0.875f;
+			auto max = (bbox->bbmax.x - center.x) * 0.875f;
+
+			points.emplace_back(scan_point(Vector(center.x + min, center.y, center.z), hitbox, false));
+			points.emplace_back(scan_point(Vector(center.x + max, center.y, center.z), hitbox, false));
+		}
+
+		// rotate our bbox points by their correct angle and convert our points to world space.
+		for (auto& p : points) {
+			// VectorRotate.
+			// rotate point by angle stored in matrix.
+			p.point = { p.point.Dot(matrix[0]), p.point.Dot(matrix[1]), p.point.Dot(matrix[2]) };
+
+			// transform point to world space.
+			p.point += origin;
+		}
+	}
+	else
+	{
+		Vector min, max;
+		math::vector_transform(bbox->bbmin, record->matrixes_data.main[bbox->bone], min);
+		math::vector_transform(bbox->bbmax, record->matrixes_data.main[bbox->bone], max);
+
+		Vector center = (bbox->bbmax + bbox->bbmin) * 0.5f;
+		Vector centerTrans = center;
+		math::vector_transform(centerTrans, record->matrixes_data.main[bbox->bone], centerTrans);
+
+		points.emplace_back(scan_point(centerTrans, hitbox, true));
+
+		if (hitbox == HITBOX_RIGHT_CALF || hitbox == HITBOX_LEFT_THIGH
+			|| hitbox == HITBOX_LEFT_CALF || hitbox == HITBOX_RIGHT_THIGH)
+			return points;
+
+		Vector aeye = g_ctx.globals.eye_pos;
+
+		auto delta = centerTrans - aeye;
+		delta.Normalized();
+
+		auto max_min = max - min;
+		max_min.Normalized();
+
+		auto cr = max_min.Cross(delta);
+
+		QAngle d_angle;
+		math::VectorAngles3(delta, d_angle);
+
+		bool vertical = hitbox == HITBOX_HEAD;
+
+		Vector right, up;
+		if (vertical)
+		{
+			QAngle cr_angle;
+			math::VectorAngles3(cr, cr_angle);
+			cr_angle.ToVectors(&right, &up);
+			cr_angle.roll = d_angle.pitch;
+
+			Vector _up = up, _right = right, _cr = cr;
+			cr = _right;
+			right = _cr;
+		}
+		else
+		{
+			math::VectorVectors(delta, up, right);
+		}
+
+		RayTracer::Hitbox box(min, max, bbox->radius);
+		RayTracer::Trace trace;
+
+		if (hitbox == HITBOX_HEAD)
+		{
+			Vector middle = (right.Normalized() + up.Normalized()) * 0.5f;
+			Vector middle2 = (right.Normalized() - up.Normalized()) * 0.5f;
+
+			RayTracer::Ray ray = RayTracer::Ray(aeye, centerTrans + (middle * 1000.0f));
+			RayTracer::TraceFromCenter(ray, box, trace, RayTracer::Flags_RETURNEND);
+			points.emplace_back(scan_point(trace.m_traceEnd, hitbox, false));
+
+			ray = RayTracer::Ray(aeye, centerTrans - (middle2 * 10000.0f));
+			RayTracer::TraceFromCenter(ray, box, trace, RayTracer::Flags_RETURNEND);
+			points.emplace_back(scan_point(trace.m_traceEnd, hitbox, false));
+
+			ray = RayTracer::Ray(aeye, centerTrans + (up * 10000.0f));
+			RayTracer::TraceFromCenter(ray, box, trace, RayTracer::Flags_RETURNEND);
+			points.emplace_back(scan_point(trace.m_traceEnd, hitbox, false));
+
+			ray = RayTracer::Ray(aeye, centerTrans - (up * 10000.0f));
+			RayTracer::TraceFromCenter(ray, box, trace, RayTracer::Flags_RETURNEND);
+			points.emplace_back(scan_point(trace.m_traceEnd, hitbox, false));
+		}
+		else
+		{
+			RayTracer::Ray ray = RayTracer::Ray(aeye, centerTrans - ((vertical ? cr : up) * 10000.0f));
+			RayTracer::TraceFromCenter(ray, box, trace, RayTracer::Flags_RETURNEND);
+			points.emplace_back(scan_point(trace.m_traceEnd, hitbox, false));
+
+			ray = RayTracer::Ray(aeye, centerTrans + ((vertical ? up : up) * 10000.0f));
+			RayTracer::TraceFromCenter(ray, box, trace, RayTracer::Flags_RETURNEND);
+			points.emplace_back(scan_point(trace.m_traceEnd, hitbox, false));
+		}
+
+		for (size_t i = 1; i < points.size(); ++i)
+		{
+			auto delta_center = points[i].point - centerTrans;
+			points[i].point = centerTrans + delta_center * POINT_SCALE;
+		}
+	}
+
+	return points;
 }

@@ -90,6 +90,7 @@ namespace hooks
 	extern DWORD original_standardblendingrules;
 	extern DWORD original_updateclientsideanimation;
 	extern DWORD original_physicssimulate;
+	extern DWORD original_oClampBonesInBBox;
 	extern DWORD original_modifyeyeposition;
 	extern DWORD original_calcviewmodelbob;
 	extern DWORD original_processinterpolatedlist;
@@ -136,6 +137,7 @@ namespace hooks
 	void __fastcall hooked_calcviewmodelbob(player_t* player, void* edx, Vector& position);
 	_declspec(noinline)void calcviewmodelbob_detour(player_t* player, Vector& position);
 	bool __fastcall hooked_shouldskipanimframe();
+	void __fastcall ClampBonesInBBox(player_t* player, void* edx, matrix3x4_t* matrix, int mask);
 	int processinterpolatedlist();
 	Vector* _fastcall get_eye_angles(player_t* player, void* edx);
 	IMaterial* __fastcall hooked_getmaterial(void* ecx, void* edx, const char* material_name, const char* texture_group_name, bool complain, const char* complain_prefix);
@@ -149,24 +151,20 @@ namespace hooks
 	//void __cdecl hooked_clmove(float accumulated_extra_samples, bool bFinalTick);
 	bool __fastcall hooked_writeusercmddeltatobuffer(void* ecx, void* edx, int slot, bf_write* buf, int from, int to, bool is_new_command);
 
-	bool __fastcall hooked_writeusercmddeltatobuffer2(void* ecx, void* edx, int slot, void* buf, int from, int to, bool is_new_command);
+	bool __fastcall hooked_sendnetmsg(INetChannel* pNetChan, void* edx, INetMessage& msg, bool bForceReliable, bool bVoice);
 
-	bool __fastcall ShiftCmd(int* new_commands, int* backup_commands, void* ecx, int slot, bf_write* buf, int unk, bool real_cmd);
+	void __fastcall Hooked_SetupMove(void* ecx, void* edx, player_t* player, CUserCmd* ucmd, IMoveHelper* moveHelper, void* pMoveData);
 
-	bool __fastcall hooked_net_message(void* netchan, void* edx, void* msg, bool bForceReliable, bool bVoice);
+	void __fastcall hooked_processmovement(void* ecx, void* edx, player_t* ent, CMoveData* data);
+
+	bool __fastcall Hooked_IsPaused(void* ecx, void* edx);
 
 
-
-	char __fastcall sub_10797090(const char* modulename);
-
-	char __fastcall sub_102A83C0(const char* modulename);
-
-	char __fastcall sub_10057020(const char* modulename);
 
 	void __fastcall hooked_clip_ray_collideable(void* ecx, void* edx, const Ray_t& ray, uint32_t fMask, ICollideable* pCollide, CGameTrace* pTrace);
 	void __fastcall hooked_trace_ray(void* ecx, void* edx, const Ray_t& ray, unsigned int fMask, ITraceFilter* pTraceFilter, trace_t* pTrace);
 	bool __fastcall hooked_loosefileallowed(void* ecx, void* edx);
-	void process_packet(void* packet, bool header);
+	
 	void __fastcall hooked_checkfilecrcswithserver(void* ecx, void* edx);
 	LRESULT __stdcall Hooked_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 	long __stdcall Hooked_EndScene(IDirect3DDevice9* pDevice);

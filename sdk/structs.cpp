@@ -1047,43 +1047,81 @@ void player_t::SetupBones_AttachmentHelper()
 
 bool player_t::setup_bones_rebuilt(matrix3x4_t* matrix, int mask)
 {
-	if (!this) //-V704
+	if (!this)
 		return false;
-
 	auto setuped = false;
-
-	auto backup_value = *(uint8_t*)((uintptr_t)this + 0x274);
-	*(uint8_t*)((uintptr_t)this + 0x274) = 0;
-
-	auto backup_effects = m_fEffects();
-	m_fEffects() |= 8;
-
-	auto animstate = get_animation_state();
-	auto previous_weapon = animstate ? animstate->m_pLastBoneSetupWeapon : nullptr;
-
+	std::array < AnimationLayer, 13 > animation_layers;
+	float curtime = m_globals()->m_curtime;
+	float realtime = m_globals()->m_realtime;
+	float absoluteframetime = m_globals()->m_absoluteframetime;
+	float frametime = m_globals()->m_frametime;
+	float framecount = m_globals()->m_framecount;
+	float tickcount = m_globals()->m_tickcount;
+	float interpolation_amount = m_globals()->m_interpolation_amount;
+	m_globals()->m_curtime = this->m_flSimulationTime();
+	m_globals()->m_realtime = this->m_flSimulationTime();
+	m_globals()->m_frametime = m_globals()->m_intervalpertick;
+	m_globals()->m_absoluteframetime = m_globals()->m_intervalpertick;
+	m_globals()->m_framecount = TIME_TO_TICKS(this->m_flSimulationTime());
+	m_globals()->m_tickcount = TIME_TO_TICKS(this->m_flSimulationTime());
+	m_globals()->m_interpolation_amount = 0.0f;
+	const LPVOID inverse_kinematics = *(LPVOID*)(uintptr_t(this) + 0x2670);
+	const int client_effects = *(uint8_t*)(uintptr_t(this) + 0x68);
+	const int last_skip_framecount = *(int*)(uintptr_t(this) + 0xA68);
+	const int occlusion_mask = *(int*)(uintptr_t(this) + 0xA28);
+	const int occlusion_frame = *(int*)(uintptr_t(this) + 0xA30);
+	const int effects = this->m_fEffects();
+	const bool maintain_sequence_transition = *(bool*)(uintptr_t(this) + 0x9F0);
+	const Vector absoluteorigin = this->GetAbsOrigin();
+	std::memcpy(animation_layers.data(), this->get_animlayers(), sizeof(AnimationLayer) * 13);
+	this->invalidate_bone_cache();
+	this->m_BoneAccessor().m_ReadableBones = NULL;
+	this->m_BoneAccessor().m_WritableBones = NULL;
+	auto animstate = this->get_animation_state();
+	auto previous_weapon = animstate ? animstate->m_pLastActiveWeapon : nullptr;
 	if (previous_weapon)
-		animstate->m_pLastBoneSetupWeapon = animstate->m_pActiveWeapon;
-
-	auto backup_abs_origin = GetAbsOrigin();
-
+		animstate->m_pLastActiveWeapon = animstate->m_pActiveWeapon;
+	*(int*)(uintptr_t(this) + 0xA30) = 0;
+	*(int*)(uintptr_t(this) + 0xA28) = 0;
+	*(int*)(uintptr_t(this) + 0xA68) = 0;
 	if (this != g_ctx.local())
-		set_abs_origin(m_vecOrigin());
-
+		this->set_abs_origin(this->m_vecOrigin());
+	this->m_fEffects() |= 8;
+	*(uint8_t*)(uintptr_t(this) + 0x68) |= 2;
+	*(LPVOID*)(uintptr_t(this) + 0x2670) = nullptr;
+	*(bool*)(uintptr_t(this) + 0x2930) = false;
+	*(bool*)(uintptr_t(this) + 0x9F0) = false;
+	if (mask == BONE_USED_BY_HITBOX)
+		this->get_animlayers()[3].m_pOwner = NULL;
+	else if (this == g_ctx.local())
+	{
+		this->get_animlayers()[12].m_flWeight = 0.0f;
+		if (this->sequence_activity(this->get_animlayers()[3].m_nSequence) == ACT_CSGO_IDLE_TURN_BALANCEADJUST)
+		{
+			this->get_animlayers()[3].m_flCycle = 0.0f;
+			this->get_animlayers()[3].m_flWeight = 0.0f;
+		}
+	}
 	g_ctx.globals.setuping_bones = true;
-	invalidate_bone_cache();
-
-	SetupBones(matrix, matrix ? MAXSTUDIOBONES : -1, mask, m_flSimulationTime());
-
+	setuped = SetupBones(matrix, MAXSTUDIOBONES, mask, this->m_flSimulationTime());
 	g_ctx.globals.setuping_bones = false;
-
+	*(bool*)(uintptr_t(this) + 0x9F0) = maintain_sequence_transition;
+	*(LPVOID*)(uintptr_t(this) + 0x2670) = inverse_kinematics;
+	*(uint8_t*)(uintptr_t(this) + 0x68) = client_effects;
+	this->m_fEffects() = effects;
+	*(int*)(uintptr_t(this) + 0xA68) = last_skip_framecount;
+	*(int*)(uintptr_t(this) + 0xA30) = occlusion_frame;
+	*(int*)(uintptr_t(this) + 0xA28) = occlusion_mask;
 	if (this != g_ctx.local())
-		set_abs_origin(backup_abs_origin);
-
-	if (previous_weapon)
-		animstate->m_pLastBoneSetupWeapon = previous_weapon;
-
-	m_fEffects() = backup_effects;
-	*(uint8_t*)((uintptr_t)this + 0x274) = backup_value;
+		set_abs_origin(absoluteorigin);
+	std::memcpy(this->get_animlayers(), animation_layers.data(), sizeof(AnimationLayer) * 13);
+	m_globals()->m_curtime = curtime;
+	m_globals()->m_realtime = realtime;
+	m_globals()->m_absoluteframetime = absoluteframetime;
+	m_globals()->m_frametime = frametime;
+	m_globals()->m_framecount = framecount;
+	m_globals()->m_tickcount = tickcount;
+	m_globals()->m_interpolation_amount = interpolation_amount;
 
 	return setuped;
 }

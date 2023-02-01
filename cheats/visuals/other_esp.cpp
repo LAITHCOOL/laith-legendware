@@ -5,6 +5,7 @@
 #include "..\misc\misc.h"
 #include "..\lagcompensation\local_animations.h"
 #include "../menu_alpha.h"
+#include "../tickbase shift/tickbase_shift.h"
 
 bool can_penetrate(weapon_t* weapon)
 {
@@ -161,12 +162,12 @@ void otheresp::holopanel(player_t* WhoUseThisBone, int hitbox_id, bool autodir)
 					render::get().rect_filled(angle.x + 100, angle.y - 150, 150, 105, Color(0, 0, 0, 150));
 				}
 
-				if (g_cfg.ragebot.double_tap && g_cfg.ragebot.double_tap_key.key > KEY_NONE && g_cfg.ragebot.double_tap_key.key < KEY_MAX && misc::get().double_tap_key)
+				if (g_cfg.ragebot.double_tap && g_cfg.ragebot.double_tap_key.key > KEY_NONE && g_cfg.ragebot.double_tap_key.key < KEY_MAX && tickbase::get().double_tap_key)
 				{
 					render::get().text(fonts[NAME], angle.x + 110, angle.y - 145, Color(255, 255, 255, 255), 0, "Exploit : ");
 					render::get().text(fonts[NAME], angle.x + 110 + render::get().text_width(fonts[NAME], "Exploit : "), angle.y - 145, Color(117, 219, 15, 255), 0, "Doubletap");
 				}
-				else if (g_cfg.antiaim.hide_shots && g_cfg.antiaim.hide_shots_key.key > KEY_NONE && g_cfg.antiaim.hide_shots_key.key < KEY_MAX && misc::get().hide_shots_key)
+				else if (g_cfg.antiaim.hide_shots && g_cfg.antiaim.hide_shots_key.key > KEY_NONE && g_cfg.antiaim.hide_shots_key.key < KEY_MAX && tickbase::get().hide_shots_key)
 				{
 					render::get().text(fonts[NAME], angle.x + 110, angle.y - 145, Color(255, 255, 255, 255), 0, "Exploit : ");
 					render::get().text(fonts[NAME], angle.x + 110 + render::get().text_width(fonts[NAME], "Exploit : "), angle.y - 145, Color(117, 219, 15, 255), 0, "HideShots");
@@ -223,16 +224,16 @@ void otheresp::indicators()
 
 	g_ctx.globals.indicator_pos = height / 2;
 
-	if (g_cfg.esp.indicators[INDICATOR_DT] && g_cfg.ragebot.double_tap && g_cfg.ragebot.double_tap_key.key > KEY_NONE && g_cfg.ragebot.double_tap_key.key < KEY_MAX && misc::get().double_tap_key)
+	if (g_cfg.esp.indicators[INDICATOR_DT] && g_cfg.ragebot.double_tap && g_cfg.ragebot.double_tap_key.key > KEY_NONE && g_cfg.ragebot.double_tap_key.key < KEY_MAX && tickbase::get().double_tap_key)
 	{
 		render::get().gradient(10, g_ctx.globals.indicator_pos - 4, render::get().text_width(fonts[INDICATORFONT2], "DT") / 2, render::get().text_heigth(fonts[INDICATORFONT2], "DT") + 8, Color(0, 0, 0, 220), Color(0, 0, 0, 200), GRADIENT_HORIZONTAL);
 		render::get().gradient(10 + render::get().text_width(fonts[INDICATORFONT2], "DT") / 2, g_ctx.globals.indicator_pos - 4, render::get().text_width(fonts[INDICATORFONT2], "DT") / 2, render::get().text_heigth(fonts[INDICATORFONT2], "DT") + 8, Color(0, 0, 0, 200), Color(0, 0, 0, 0), GRADIENT_HORIZONTAL);
 		render::get().text(fonts[INDICATORFONT2], 11, g_ctx.globals.indicator_pos + 1, Color::Black, 0, "DT");
-		render::get().text(fonts[INDICATORFONT2], 10, g_ctx.globals.indicator_pos, !g_ctx.local()->m_bGunGameImmunity() && !(g_ctx.local()->m_fFlags() & FL_FROZEN) && !antiaim::get().freeze_check && misc::get().double_tap_enabled && !weapon->is_grenade() && weapon->m_iItemDefinitionIndex() != WEAPON_TASER && weapon->m_iItemDefinitionIndex() != WEAPON_REVOLVER && weapon->can_fire(false) ? Color(130, 20, 0, 255) : Color(255, 255, 255, 150), 0, "DT");
+		render::get().text(fonts[INDICATORFONT2], 10, g_ctx.globals.indicator_pos, !g_ctx.local()->m_bGunGameImmunity() && !(g_ctx.local()->m_fFlags() & FL_FROZEN) && !antiaim::get().freeze_check && tickbase::get().double_tap_enabled && !weapon->is_grenade() && weapon->m_iItemDefinitionIndex() != WEAPON_TASER && weapon->m_iItemDefinitionIndex() != WEAPON_REVOLVER && weapon->can_fire(false) ? Color(130, 20, 0, 255) : Color(255, 255, 255, 150), 0, "DT");
 		g_ctx.globals.indicator_pos += 40;
 	}
 
-	if (g_cfg.esp.indicators[INDICATOR_HS] && g_cfg.antiaim.hide_shots && g_cfg.antiaim.hide_shots_key.key > KEY_NONE && g_cfg.antiaim.hide_shots_key.key < KEY_MAX && misc::get().hide_shots_key)
+	if (g_cfg.esp.indicators[INDICATOR_HS] && g_cfg.antiaim.hide_shots && g_cfg.antiaim.hide_shots_key.key > KEY_NONE && g_cfg.antiaim.hide_shots_key.key < KEY_MAX && tickbase::get().hide_shots_key)
 	{
 		render::get().gradient(10, g_ctx.globals.indicator_pos - 4, render::get().text_width(fonts[INDICATORFONT2], "HS") / 2, render::get().text_heigth(fonts[INDICATORFONT2], "HS") + 8, Color(0, 0, 0, 220), Color(0, 0, 0, 200), GRADIENT_HORIZONTAL);
 		render::get().gradient(10 + render::get().text_width(fonts[INDICATORFONT2], "HS") / 2, g_ctx.globals.indicator_pos - 4, render::get().text_width(fonts[INDICATORFONT2], "HS") / 2, render::get().text_heigth(fonts[INDICATORFONT2], "HS") + 8, Color(0, 0, 0, 200), Color(0, 0, 0, 0), GRADIENT_HORIZONTAL);
@@ -262,7 +263,7 @@ void otheresp::indicators()
 		g_ctx.globals.indicator_pos += 40;
 	}
 
-	if (g_cfg.esp.indicators[INDICATOR_CHOKE] && !fakelag::get().condition && !misc::get().double_tap_enabled && !misc::get().hide_shots_enabled)
+	if (g_cfg.esp.indicators[INDICATOR_CHOKE] && !fakelag::get().condition && !tickbase::get().double_tap_enabled && !tickbase::get().hide_shots_enabled)
 	{
 		auto colorfl = Color(130, 20 + (int)((m_clientstate()->iChokedCommands / 15.f) * 200.0f), 0);
 		render::get().gradient(10, g_ctx.globals.indicator_pos - 4, render::get().text_width(fonts[INDICATORFONT2], "FL ") / 2, render::get().text_heigth(fonts[INDICATORFONT2], "FL ") + 8, Color(0, 0, 0, 220), Color(0, 0, 0, 200), GRADIENT_HORIZONTAL);

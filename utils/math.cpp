@@ -494,6 +494,48 @@ namespace math
 		angles[1] = yaw;
 		angles[2] = 0;
 	}
+
+	void VectorAngles3(const Vector& forward, QAngle& angles, Vector* up)
+	{
+		Vector  left;
+		float   len, up_z, pitch, yaw, roll;
+
+		// get 2d length.
+		len = forward.Length2D();
+
+		if (up && len > 0.001f) {
+			pitch = RAD2DEG(std::atan2(-forward.z, len));
+			yaw = RAD2DEG(std::atan2(forward.y, forward.x));
+
+			// get left direction vector using cross product.
+			left = (*up).Cross(forward).Normalized();
+
+			// calculate up_z.
+			up_z = (left.y * forward.x) - (left.x * forward.y);
+
+			// calculate roll.
+			roll = RAD2DEG(std::atan2(left.z, up_z));
+		}
+
+		else {
+			if (len > 0.f) {
+				// calculate pitch and yaw.
+				pitch = RAD2DEG(std::atan2(-forward.z, len));
+				yaw = RAD2DEG(std::atan2(forward.y, forward.x));
+				roll = 0.f;
+			}
+
+			else {
+				pitch = float((forward.z > 0) ? 270 : 90);
+				yaw = 0.f;
+				roll = 0.f;
+			}
+		}
+
+		// set out angles.
+		angles = { pitch, yaw, roll };
+	}
+
 	//--------------------------------------------------------------------------------
 	void VectorMAInline(const float* start, float scale, const float* direction, float* dest)
 	{

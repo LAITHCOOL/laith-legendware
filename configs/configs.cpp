@@ -68,12 +68,13 @@ void C_ConfigManager::setup()
 	setup_item(&g_cfg.ragebot.knife_bot, false, crypt_str("Ragebot.knife_bot"));
 	setup_item(&g_cfg.ragebot.autoshoot, false, crypt_str("Ragebot.autoshoot"));
 	setup_item(&g_cfg.ragebot.double_tap, false, crypt_str("Ragebot.double_tap"));
+	setup_item(&g_cfg.ragebot.dt_types, 0, crypt_str("Ragebot.dt_types"));
 
 	//setup_item(&g_cfg.ragebot.resolver, false, crypt_str("Ragebot.resolver"));
 	//setup_item(&g_cfg.ragebot.teleport_speed, 0, crypt_str("Ragebot.teleport_speed"));
 	//setup_item(&g_cfg.ragebot.slow_teleport, false, crypt_str("Ragebot.slow_teleport"));
 	setup_item(&g_cfg.ragebot.double_tap_key, key_bind(TOGGLE), crypt_str("Ragebot.double_tap_key"));
-	//setup_item(&g_cfg.ragebot.autoscope, false, crypt_str("Ragebot.autoscope"));
+	setup_item(&g_cfg.ragebot.autoscope, false, crypt_str("Ragebot.autoscope"));
 	//setup_item(&g_cfg.ragebot.dtap_type, 0, crypt_str("Ragebot.dtaptype"));
 	setup_item(&g_cfg.ragebot.safe_point_key, key_bind(HOLD), crypt_str("Ragebot.safe_point_key"));
 	setup_item(&g_cfg.ragebot.body_aim_key, key_bind(HOLD), crypt_str("Ragebot.body_aim_key"));
@@ -132,6 +133,9 @@ void C_ConfigManager::setup()
 
 
 	setup_item(&g_cfg.antiaim.enable, false, crypt_str("Antiaim.enable"));
+	setup_item(&g_cfg.antiaim.desync_on_shot, false, crypt_str("Antiaim.desync_on_shot"));
+	setup_item(&g_cfg.antiaim.roll_enabled, false, crypt_str("Antiaim.roll_enabled"));
+	setup_item(&g_cfg.antiaim.roll, 0, crypt_str("Antiaim.roll"));
 	setup_item(&g_cfg.antiaim.at_targets, false, crypt_str("Antiaim.at_targets"));
 	setup_item(&g_cfg.antiaim.freestand, false, crypt_str("Antiaim.freestand"));
 	setup_item(&g_cfg.antiaim.freestand_mode, 0, crypt_str("Antiaim.freestand_mode"));
@@ -300,6 +304,7 @@ void C_ConfigManager::setup()
 	setup_item(&g_cfg.esp.kill_effect, false, crypt_str("Esp.kill_effect"));
 	setup_item(&g_cfg.esp.kill_effect_duration, 3.0f, crypt_str("Esp.kill_effect_duration"));
 	setup_item(&g_cfg.esp.fov, 0, crypt_str("Esp.fov"));
+	setup_item(&g_cfg.esp.bullet_tracer_type, 0, crypt_str("Esp.bullet_tracer_type"));
 	setup_item(&g_cfg.esp.viewmodel_fov, 0, crypt_str("Esp.viewmodel_fov"));
 	setup_item(&g_cfg.esp.viewmodel_x, 0, crypt_str("Esp.viewmodel_x"));
 	setup_item(&g_cfg.esp.viewmodel_y, 0, crypt_str("Esp.viewmodel_y"));

@@ -189,6 +189,28 @@ const char* pitch[] =
 };
 
 
+const char* beams[] =
+{
+"blueglow1",
+"bubble",
+"glow01",
+"physbeam",
+"purpleglow1",
+"purplelaser1",
+"radio",
+"white",
+"line (neverlose)",
+};
+
+
+const char* dt_type[] =
+{
+"Normal",
+"Defensive",
+"Custome",
+};
+
+
 const char* yaw[] =
 {
 	"Static",

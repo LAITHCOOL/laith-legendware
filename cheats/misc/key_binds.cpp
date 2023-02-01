@@ -4,6 +4,7 @@
 #include "key_binds.h"
 #include "..\..\includes.hpp"
 #include "misc.h"
+#include "../../cheats/tickbase shift/tickbase_shift.h"
 
 void key_binds::update_key_bind(key_bind* key_bind, int key_bind_id)
 {
@@ -15,20 +16,20 @@ void key_binds::update_key_bind(key_bind* key_bind, int key_bind_id)
 		switch (key_bind_id)
 		{
 		case 2:
-			if (misc::get().recharging_double_tap)
+			if (tickbase::get().recharging_double_tap)
 				break;
 
-			misc::get().double_tap_key = is_button_down;
+			tickbase::get().double_tap_key = is_button_down;
 
-			if (misc::get().double_tap_key && g_cfg.ragebot.double_tap_key.key != g_cfg.antiaim.hide_shots_key.key)
-				misc::get().hide_shots_key = false;
+			if (tickbase::get().double_tap_key && g_cfg.ragebot.double_tap_key.key != g_cfg.antiaim.hide_shots_key.key)
+				tickbase::get().hide_shots_key = false;
 
 			break;
 		case 12:
-			misc::get().hide_shots_key = is_button_down;
+			tickbase::get().hide_shots_key = is_button_down;
 
-			if (misc::get().hide_shots_key && g_cfg.antiaim.hide_shots_key.key != g_cfg.ragebot.double_tap_key.key)
-				misc::get().double_tap_key = false;
+			if (tickbase::get().hide_shots_key && g_cfg.antiaim.hide_shots_key.key != g_cfg.ragebot.double_tap_key.key)
+				tickbase::get().double_tap_key = false;
 
 			break;
 		case 13:
@@ -71,20 +72,20 @@ void key_binds::update_key_bind(key_bind* key_bind, int key_bind_id)
 			switch (key_bind_id)
 			{
 			case 2:
-				if (misc::get().recharging_double_tap)
+				if (tickbase::get().recharging_double_tap)
 					break;
 
-				misc::get().double_tap_key = !misc::get().double_tap_key;
+				tickbase::get().double_tap_key = !tickbase::get().double_tap_key;
 
-				if (misc::get().double_tap_key && g_cfg.ragebot.double_tap_key.key != g_cfg.antiaim.hide_shots_key.key)
-					misc::get().hide_shots_key = false;
+				if (tickbase::get().double_tap_key && g_cfg.ragebot.double_tap_key.key != g_cfg.antiaim.hide_shots_key.key)
+					tickbase::get().hide_shots_key = false;
 
 				break;
 			case 12:
-				misc::get().hide_shots_key = !misc::get().hide_shots_key;
+				tickbase::get().hide_shots_key = !tickbase::get().hide_shots_key;
 
-				if (misc::get().hide_shots_key && g_cfg.antiaim.hide_shots_key.key != g_cfg.ragebot.double_tap_key.key)
-					misc::get().double_tap_key = false;
+				if (tickbase::get().hide_shots_key && g_cfg.antiaim.hide_shots_key.key != g_cfg.ragebot.double_tap_key.key)
+					tickbase::get().double_tap_key = false;
 
 				break;
 			case 13:
@@ -183,14 +184,14 @@ bool key_binds::get_key_bind_state_lua(int key_bind_id)
 	switch (key_bind_id)
 	{
 	case 2:
-		return misc::get().double_tap_key;
+		return tickbase::get().double_tap_key;
 	case 4:
 		if (g_ctx.globals.current_weapon < 0)
 			return false;
 
 		return keys[4 + g_ctx.globals.current_weapon];
 	case 12:
-		return misc::get().hide_shots_key;
+		return tickbase::get().hide_shots_key;
 	case 13:
 		return antiaim::get().manual_side == SIDE_BACK;
 	case 14:

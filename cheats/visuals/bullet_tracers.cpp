@@ -13,36 +13,88 @@ void bullettracers::draw_beam(bool local_tracer, const Vector& src, const Vector
 		return;
 
 	BeamInfo_t beam_info;
-	beam_info.m_vecStart = src;
+	Vector startP , endP;
+
+	startP = src;
+
+	endP = end;
 
 	if (local_tracer)
-		beam_info.m_vecStart.z -= 4.0f;
+	{
+		//beam_info.m_vecStart.z -= 4.0f;
+		startP.x += 3.0f;
+	}
 
-	beam_info.m_vecEnd = end;
-	beam_info.m_nType = TE_BEAMPOINTS;
-	beam_info.m_pszModelName = crypt_str("sprites/purplelaser1.vmt");
-	beam_info.m_nModelIndex = -1;
-	beam_info.m_flHaloScale = 0.0f;
-	beam_info.m_flLife = 4.0f;
-	beam_info.m_flWidth = 2.0f;
-	beam_info.m_flEndWidth = 2.0f;
-	beam_info.m_flFadeLength = 0.0f;
-	beam_info.m_flAmplitude = 2.0f;
-	beam_info.m_flBrightness = (float)color.a();
-	beam_info.m_flSpeed = 0.2f;
-	beam_info.m_nStartFrame = 0;
-	beam_info.m_flFrameRate = 0.0f;
-	beam_info.m_flRed = (float)color.r();
-	beam_info.m_flGreen = (float)color.g();
-	beam_info.m_flBlue = (float)color.b();
-	beam_info.m_nSegments = 2;
-	beam_info.m_bRenderable = true;
-	beam_info.m_nFlags = FBEAM_SHADEIN | FBEAM_ONLYNOISEONCE | FBEAM_NOTILE | FBEAM_HALOBEAM;
 
-	auto beam = m_viewrenderbeams()->CreateBeamPoints(beam_info);
 
-	if (beam)
-		m_viewrenderbeams()->DrawBeam(beam);
+	const char* sprite;
+
+	switch (g_cfg.esp.bullet_tracer_type)
+	{
+	case 0:
+		sprite = "sprites/blueglow1.vmt";
+		break;
+	case 1:
+		sprite = "sprites/bubble.vmt";
+		break;
+	case 2:
+		sprite = "sprites/glow01.vmt";
+		break;
+	case 3:
+		sprite = "sprites/physbeam.vmt";
+		break;
+	case 4:
+		sprite = "sprites/purpleglow1.vmt";
+		break;
+	case 5:
+		sprite = "sprites/purplelaser1.vmt";
+		break;
+	case 6:
+		sprite = "sprites/radio.vmt";
+		break;
+	case 7:
+		sprite = "sprites/white.vmt";
+		break;
+
+	}
+
+	float red = (float)color.r();
+	float green = (float)color.g();
+	float blue = (float)color.b();
+	float alpha = (float)color.b();
+
+	if (g_cfg.esp.bullet_tracer_type == 8)
+		m_debugoverlay()->AddLineOverlayAlpha(startP, endP, red, green, blue, alpha, false, 4);
+	else
+	{
+		beam_info.m_vecStart = startP;
+		beam_info.m_vecEnd = endP;
+		beam_info.m_nType = TE_BEAMPOINTS;
+		beam_info.m_pszModelName = crypt_str(sprite);
+		//beam_info.m_nModelIndex = -1;
+		beam_info.m_pszHaloName = crypt_str(sprite);
+		beam_info.m_flHaloScale = 3.5f;
+		beam_info.m_flLife = 4.5f;
+		beam_info.m_flWidth = 4.0f;
+		beam_info.m_flEndWidth = 4.4f;
+		beam_info.m_flFadeLength = 1.0f;
+		beam_info.m_flAmplitude = 0.0f;
+		beam_info.m_flBrightness = alpha;
+		beam_info.m_flSpeed = 0.0f;
+		beam_info.m_nStartFrame = 0;
+		beam_info.m_flFrameRate = 0.0f;
+		beam_info.m_flRed = red;
+		beam_info.m_flGreen = green;
+		beam_info.m_flBlue = blue;
+		beam_info.m_nSegments = 1;
+		beam_info.m_bRenderable = true;
+		beam_info.m_nFlags = 1;
+
+		auto beam = m_viewrenderbeams()->CreateBeamPoints(beam_info);
+
+		if (beam)
+			m_viewrenderbeams()->DrawBeam(beam);
+	}
 }
 
 void bullettracers::events(IGameEvent* event)

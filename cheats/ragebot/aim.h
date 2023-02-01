@@ -200,6 +200,7 @@ class aim : public singleton <aim>
 	bool automatic_stop(CUserCmd* cmd);
 	void find_best_target();
 	void fire(CUserCmd* cmd);
+
 	void build_seed_table();
 	bool CalculateHitchance1(const Vector& aim_angle, int& final_hitchance);
 
@@ -231,9 +232,10 @@ public:
 	std::vector <int> get_hitboxes(adjust_data* record, bool optimized = false);
 	float GetBodyScale(player_t* player);
 	float GetHeadScale(player_t* player);
+	//std::vector<scan_point> get_points(adjust_data* record, int hitbox);
 	std::vector<scan_point> get_points(adjust_data* record, int hitbox);
-	
-	bool hitbox_intersection(player_t* e, matrix3x4_t* matrix, int hitbox, const Vector& start, const Vector& end, float* safe = nullptr);
+	//bool hitbox_intersection(player_t* e, matrix3x4_t* matrix, int hitbox, const Vector& start, const Vector& end, float* safe = nullptr);
+	bool hitbox_intersection(player_t* e, matrix3x4_t* matrix, int hitbox, const Vector& start, const Vector& end);
 
 	std::vector <target> targets;
 	std::vector <adjust_data> backup;

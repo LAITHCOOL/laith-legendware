@@ -9,6 +9,7 @@
 #include "logs.h"
 #include "..\visuals\hitchams.h"
 #include "../menu_alpha.h"
+#include "../tickbase shift/tickbase_shift.h"
 
 #define ALPHA (ImGuiColorEditFlags_AlphaPreview | ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_AlphaBar| ImGuiColorEditFlags_InputRGB | ImGuiColorEditFlags_Float)
 #define NOALPHA (ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_InputRGB | ImGuiColorEditFlags_Float)
@@ -292,60 +293,7 @@ void misc::SlideWalk(CUserCmd* cmd)
 	}
 }
 
-void misc::automatic_peek(CUserCmd* cmd, float wish_yaw)
-{
-	if (!g_ctx.globals.weapon->is_non_aim() && key_binds::get().get_key_bind_state(18))
-	{
-		if (g_ctx.globals.start_position.IsZero())
-		{
-			g_ctx.globals.start_position = g_ctx.local()->GetAbsOrigin();
 
-			if (!(engineprediction::get().backup_data.flags & FL_ONGROUND))
-			{
-				Ray_t ray;
-				CTraceFilterWorldAndPropsOnly filter;
-				CGameTrace trace;
-
-				ray.Init(g_ctx.globals.start_position, g_ctx.globals.start_position - Vector(0.0f, 0.0f, 1000.0f));
-				m_trace()->TraceRay(ray, MASK_SOLID, &filter, &trace);
-
-				if (trace.fraction < 1.0f)
-					g_ctx.globals.start_position = trace.endpos + Vector(0.0f, 0.0f, 2.0f);
-			}
-		}
-		else
-		{
-			auto revolver_shoot = g_ctx.globals.weapon->m_iItemDefinitionIndex() == WEAPON_REVOLVER && !g_ctx.globals.revolver_working && (cmd->m_buttons & IN_ATTACK || cmd->m_buttons & IN_ATTACK2);
-
-			if (cmd->m_buttons & IN_ATTACK && g_ctx.globals.weapon->m_iItemDefinitionIndex() != WEAPON_REVOLVER || revolver_shoot)
-				g_ctx.globals.fired_shot = true;
-
-			if (g_ctx.globals.fired_shot)
-			{
-				auto &current_position = g_ctx.local()->GetAbsOrigin();
-				auto difference = current_position - g_ctx.globals.start_position;
-
-				if (difference.Length2D() > 5.0f)
-				{
-					auto velocity = Vector(difference.x * cos(wish_yaw / 180.0f * M_PI) + difference.y * sin(wish_yaw / 180.0f * M_PI), difference.y * cos(wish_yaw / 180.0f * M_PI) - difference.x * sin(wish_yaw / 180.0f * M_PI), difference.z);
-
-					cmd->m_forwardmove = -velocity.x * 20.0f;
-					cmd->m_sidemove = velocity.y * 20.0f;
-				}
-				else
-				{
-					g_ctx.globals.fired_shot = false;
-					g_ctx.globals.start_position.Zero();
-				}
-			}
-		}
-	}
-	else
-	{
-		g_ctx.globals.fired_shot = false;
-		g_ctx.globals.start_position.Zero();
-	}
-}
 
 void misc::ViewModel()
 {
@@ -975,8 +923,8 @@ void misc::key_binds()
 	if (g_cfg.ragebot.weapon[hooks::rage_weapon].damage_override_key.key > KEY_NONE && g_cfg.ragebot.weapon[hooks::rage_weapon].damage_override_key.key < KEY_MAX && key_binds::get().get_key_bind_state(_MIN_DAMAGE) && rage) pressed_binds++;
 	if (key_binds::get().get_key_bind_state(_LEGITBOT) && legit)pressed_binds++;
 	if (key_binds::get().get_key_bind_state(_AUTOFIRE) && legit)pressed_binds++;
-	if (g_cfg.ragebot.double_tap && misc::get().double_tap_key || key_binds::get().get_key_bind_state(_DOUBLETAP) && rage)pressed_binds++;
-	if (g_cfg.antiaim.hide_shots && g_cfg.antiaim.hide_shots_key.key > KEY_NONE && g_cfg.antiaim.hide_shots_key.key < KEY_MAX && misc::get().hide_shots_key && rage)pressed_binds++;
+	if (g_cfg.ragebot.double_tap && tickbase::get().double_tap_key || key_binds::get().get_key_bind_state(_DOUBLETAP) && rage)pressed_binds++;
+	if (g_cfg.antiaim.hide_shots && g_cfg.antiaim.hide_shots_key.key > KEY_NONE && g_cfg.antiaim.hide_shots_key.key < KEY_MAX && tickbase::get().hide_shots_key && rage)pressed_binds++;
 	if (key_binds::get().get_key_bind_state(_BODY_AIM) && rage)pressed_binds++;
 	if (key_binds::get().get_key_bind_state(_SAFEPOINT) && rage)pressed_binds++;
 	if (key_binds::get().get_key_bind_state(_THIRDPERSON) && vis)pressed_binds++;
@@ -1036,8 +984,8 @@ void misc::key_binds()
 			add_key("minimum damage", key_binds::get().get_key_bind_state(_MIN_DAMAGE), g_cfg.ragebot.weapon[hooks::rage_weapon].damage_override_key, 200, min(main_alpha * 2, 1.f), rage, true);
 			add_key("legitbot key", key_binds::get().get_key_bind_state(_LEGITBOT), g_cfg.legitbot.key, 200, min(main_alpha * 2, 1.f), legit);
 			add_key("trigger-bot", key_binds::get().get_key_bind_state(_AUTOFIRE), g_cfg.legitbot.autofire_key, 200, min(main_alpha * 2, 1.f), legit);
-			add_key("double-tap", g_cfg.ragebot.double_tap && misc::get().double_tap_key || misc::get().double_tap_checkc || key_binds::get().get_key_bind_state(_DOUBLETAP), g_cfg.ragebot.double_tap_key, 200, min(main_alpha * 2, 1.f), rage, false);
-			add_key("hide-shots", g_cfg.antiaim.hide_shots && g_cfg.antiaim.hide_shots_key.key > KEY_NONE && g_cfg.antiaim.hide_shots_key.key < KEY_MAX&& misc::get().hide_shots_key, g_cfg.antiaim.hide_shots_key, 200, min(main_alpha * 2, 1.f), rage&& aa, false);
+			add_key("double-tap", g_cfg.ragebot.double_tap && tickbase::get().double_tap_key || tickbase::get().double_tap_checkc || key_binds::get().get_key_bind_state(_DOUBLETAP), g_cfg.ragebot.double_tap_key, 200, min(main_alpha * 2, 1.f), rage, false);
+			add_key("hide-shots", g_cfg.antiaim.hide_shots && g_cfg.antiaim.hide_shots_key.key > KEY_NONE && g_cfg.antiaim.hide_shots_key.key < KEY_MAX&& tickbase::get().hide_shots_key, g_cfg.antiaim.hide_shots_key, 200, min(main_alpha * 2, 1.f), rage&& aa, false);
 			add_key("force body-aim", key_binds::get().get_key_bind_state(_BODY_AIM), g_cfg.ragebot.body_aim_key, 200, min(main_alpha * 2, 1.f), rage);
 			add_key("force safe-point", key_binds::get().get_key_bind_state(_SAFEPOINT), g_cfg.ragebot.safe_point_key, 200, min(main_alpha * 2, 1.f), rage);
 			add_key("thirdperson", key_binds::get().get_key_bind_state(_THIRDPERSON), g_cfg.misc.thirdperson_toggle, 200, min(main_alpha * 2, 1.f), vis);
@@ -1052,326 +1000,107 @@ void misc::key_binds()
 	ImGui::End();
 }
 
-void misc::double_tap_deffensive(CUserCmd* cmd)
+void misc::automatic_peek(CUserCmd* cmd, float wish_yaw)
 {
-	bool did_peek = false;
-	auto predicted_eye_pos = g_ctx.globals.eye_pos + engineprediction::get().backup_data.velocity * m_globals()->m_intervalpertick * 6.f;
-	bool SkipTick = false;
-	if (antiaim::get().type != ANTIAIM_STAND)
+	if (!g_ctx.globals.weapon->is_non_aim() && key_binds::get().get_key_bind_state(18))
 	{
-		for (auto i = 1; i < m_globals()->m_maxclients; i++)
+		if (g_ctx.globals.start_position.IsZero())
 		{
-			auto e = static_cast<player_t*>(m_entitylist()->GetClientEntity(i));
-			if (!e->valid(true))
-				continue;
+			g_ctx.globals.start_position = g_ctx.local()->GetAbsOrigin();
 
-			if (!e || i == -1)
-				continue;
-
-			auto records = &player_records[i];
-			if (records->empty())
-				continue;
-
-			auto record = &records->front();
-			if (!record->valid())
-				continue;
-
-			scan_data predicted_data;
-			aim::get().scan(record, predicted_data, predicted_eye_pos);
-
-			if (!predicted_data.valid())
+			if (!(engineprediction::get().backup_data.flags & FL_ONGROUND))
 			{
-				scan_data data;
-				aim::get().scan(record, data, g_ctx.globals.eye_pos);
+				Ray_t ray;
+				CTraceFilterWorldAndPropsOnly filter;
+				CGameTrace trace;
 
-				if (!data.valid())
-					continue;
-				if (data.damage > 0)
-					did_peek = true;
+				ray.Init(g_ctx.globals.start_position, g_ctx.globals.start_position - Vector(0.0f, 0.0f, 1000.0f));
+				m_trace()->TraceRay(ray, MASK_SOLID, &filter, &trace);
+
+				if (trace.fraction < 1.0f)
+					g_ctx.globals.start_position = trace.endpos + Vector(0.0f, 0.0f, 2.0f);
 			}
+		}
+		else
+		{
+			auto revolver_shoot = g_ctx.globals.weapon->m_iItemDefinitionIndex() == WEAPON_REVOLVER && !g_ctx.globals.revolver_working && (cmd->m_buttons & IN_ATTACK || cmd->m_buttons & IN_ATTACK2);
 
-			if (predicted_data.damage > 0)
-				did_peek = true;
-			else
-				did_peek = false;
+			if (cmd->m_buttons & IN_ATTACK && g_ctx.globals.weapon->m_iItemDefinitionIndex() != WEAPON_REVOLVER || revolver_shoot)
+				g_ctx.globals.fired_shot = true;
 
-			if (did_peek)
+			if (g_ctx.globals.fired_shot)
 			{
-				g_ctx.send_packet = true;
-				SkipTick = true;
-				g_cfg.ragebot.defensive_doubletap = true;
-				did_peek = false;
-			}
+				auto& current_position = g_ctx.local()->GetAbsOrigin();
+				auto difference = current_position - g_ctx.globals.start_position;
 
-			if (!g_cfg.ragebot.defensive_doubletap && !SkipTick)
-			{
-				if (m_clientstate()->pNetChannel->m_nChokedPackets < 15)
-					g_ctx.send_packet = false;
+				if (difference.Length2D() > 5.0f)
+				{
+					auto velocity = Vector(difference.x * cos(wish_yaw / 180.0f * M_PI) + difference.y * sin(wish_yaw / 180.0f * M_PI), difference.y * cos(wish_yaw / 180.0f * M_PI) - difference.x * sin(wish_yaw / 180.0f * M_PI), difference.z);
+
+					cmd->m_forwardmove = -velocity.x * 20.0f;
+					cmd->m_sidemove = velocity.y * 20.0f;
+				}
 				else
-					g_cfg.ragebot.defensive_doubletap = false;
+				{
+					g_ctx.globals.fired_shot = false;
+					g_ctx.globals.start_position.Zero();
+				}
 			}
-
 		}
 	}
-		
-	
-
-	if (!g_cfg.ragebot.defensive_doubletap)
+	else
 	{
-		float shift_time = 15 * m_globals()->m_intervalpertick;
-		if ((cmd->m_buttons && IN_ATTACK || IN_ATTACK2) && g_ctx.globals.weapon->m_flNextPrimaryAttack() <= m_globals()->m_curtime - shift_time)
+		g_ctx.globals.fired_shot = false;
+		g_ctx.globals.start_position.Zero();
+	}
+}
+
+
+void misc::fix_autopeek(CUserCmd* cmd)
+{
+	if (key_binds::get().get_key_bind_state(18)) 
+	{
+		float wish_yaw = g_ctx.globals.wish_angle.y;
+		auto difference = g_ctx.local()->GetAbsOrigin() - g_ctx.globals.start_position;
+
+		const auto chocked_ticks = (cmd->m_command_number % 2) != 1
+			? (13 - m_clientstate()->iChokedCommands) : m_clientstate()->iChokedCommands;
+
+		static auto cl_forwardspeed = m_cvar()->FindVar(crypt_str("cl_forwardspeed"));
+		static auto cl_sidespeed = m_cvar()->FindVar(crypt_str("cl_sidespeed"));
+
+		Vector playerloc = g_ctx.local()->GetAbsOrigin();
+
+		float yaw = cmd->m_viewangles.y;
+
+		Vector VecForward = playerloc - g_ctx.globals.start_position;
+
+
+		if (difference.Length2D() > 5.0f)
 		{
-			g_ctx.globals.tickbase_shift = 15;
-			g_ctx.globals.shifting_command_number = cmd->m_command_number;
-			g_cfg.antiaim.triggers_fakelag_amount = true;
+			static int width, height;
+			m_engine()->GetScreenSize(width, height);
+
+			Vector screen;
+			if (math::world_to_screen(g_ctx.globals.start_position, screen)) {
+				if (screen.x > width / 2)
+					cmd->m_sidemove = (cl_forwardspeed->GetFloat() - (1.2f * chocked_ticks));
+				else
+					cmd->m_sidemove = -(cl_forwardspeed->GetFloat() - (1.2f * chocked_ticks));
+			}
+			auto angle = math::calculate_angle(g_ctx.local()->GetAbsOrigin(), g_ctx.globals.start_position);
+			g_ctx.globals.wish_angle.y = angle.y;
 		}
-
-	}
-
-	for (auto i = 0; i < g_ctx.globals.tickbase_shift; i++)
-	{
-		auto command = m_input()->GetUserCmd(cmd[i].m_command_number);
-		auto v8 = m_input()->GetVerifiedUserCmd(cmd[i].m_command_number);
-
-		memcpy(command, &cmd[i], sizeof(CUserCmd));
-
-		bool v6 = command->m_tickcount == 0x7F7FFFFF;
-		command->m_predicted = v6;
-
-		v8->m_cmd = *command;
-		v8->m_crc = command->GetChecksum();
-
-		++m_clientstate()->pNetChannel->m_nChokedPackets;
-		++m_clientstate()->pNetChannel->m_nOutSequenceNr;
-		++m_clientstate()->iChokedCommands;
-	}
-}
-
-
-
-
-
-void misc::lagexploit(CUserCmd* m_pcmd)
-{
-	bool did_peek = false;
-	//auto predicted_eye_pos = g_ctx.globals.eye_pos + engineprediction::get().backup_data.velocity * m_globals()->m_intervalpertick * 6.f;
-	Vector predicted_eye_pos = g_ctx.globals.eye_pos + (engineprediction::get().backup_data.velocity * m_globals()->m_intervalpertick * 4.f);
-
-
-	if (antiaim::get().type == ANTIAIM_STAND)
-	{
-		did_peek = false;
-		return;
-	}
-
-	for (auto i = 1; i < m_globals()->m_maxclients; i++)
-	{
-		auto e = static_cast<player_t*>(m_entitylist()->GetClientEntity(i));
-		if (!e->valid(true))
-			continue;
-
-		if (!e || i == -1)
-			continue;
-
-		auto records = &player_records[i];
-		if (records->empty())
-			continue;
-
-		auto record = &records->front();
-		if (!record->valid())
-			continue;
-
-		FireBulletData_t fire_data = { };
-
-		fire_data.damage = CAutoWall::GetDamage(predicted_eye_pos, g_ctx.local(), e->hitbox_position_matrix(HITBOX_HEAD, record->matrixes_data.main), &fire_data);
-
-		if ( fire_data.damage < 1)
-			continue;
-
-		did_peek = true;
-
-	}
-
-	if (did_peek)
-	{
-		g_ctx.globals.tickbase_shift = 13; // break lc
-		g_ctx.globals.shifting_command_number = m_pcmd->m_command_number; // used for tickbase fix 
-		did_peek = false;
-	}
-}
-
-
-
-void misc::DoubleTap(CUserCmd* m_pcmd)
-{
-	double_tap_enabled = true;
-	//vars
-	auto shiftAmount = g_cfg.ragebot.shift_amount;
-	float shiftTime = shiftAmount * m_globals()->m_intervalpertick;
-	float recharge_time = TIME_TO_TICKS(g_cfg.ragebot.recharge_time);
-	auto weapon = g_ctx.local()->m_hActiveWeapon();
-
-	g_ctx.globals.tickbase_shift = shiftAmount;
-
-	//Check if we can doubletap
-	if (!CanDoubleTap(false))
-		return;
-
-	//Fix for doubletap hitchance
-	if (g_ctx.globals.dt_shots == 1) {
-		g_ctx.globals.dt_shots = 0;
-	}
-
-	//Recharge
-	if (!aim::get().should_stop && !(m_pcmd->m_buttons & IN_ATTACK || m_pcmd->m_buttons & IN_ATTACK2 && g_ctx.globals.weapon->is_knife()) && !util::is_button_down(MOUSE_LEFT) && g_ctx.globals.tocharge < shiftAmount && (m_pcmd->m_command_number - lastdoubletaptime) > recharge_time) {
-		/*INetChannelInfo* nci = m_engine()->GetNetChannelInfo();
-		if (g_cfg.ragebot.exploit_modifiers.at(0) && nci->GetAvgLoss(FLOW_INCOMING) > 0)
-			return;*/
-
-		lastdoubletaptime = 0;
-
-		g_ctx.globals.startcharge = true;
-		g_ctx.globals.tochargeamount = shiftAmount;
-		g_ctx.globals.dt_shots = 0;
-	}
-	else g_ctx.globals.startcharge = false;
-
-	//Do the magic.
-	bool restricted_weapon = (g_ctx.globals.weapon->m_iItemDefinitionIndex() == WEAPON_TASER || g_ctx.globals.weapon->m_iItemDefinitionIndex() == WEAPON_REVOLVER);
-	if ((m_pcmd->m_buttons & IN_ATTACK) && !restricted_weapon && g_ctx.globals.tocharge == shiftAmount && weapon->m_flNextPrimaryAttack() <= m_pcmd->m_command_number - shiftTime) {
-		if (g_ctx.globals.aimbot_working)
+		else
 		{
-			g_ctx.globals.double_tap_aim = true;
-			g_ctx.globals.double_tap_aim_check = true;
+			g_ctx.globals.fired_shot = false;
+			g_ctx.globals.start_position.Zero();
 		}
-		g_ctx.globals.shift_ticks = shiftAmount;
-		g_ctx.globals.m_shifted_command = m_pcmd->m_command_number;
-		lastdoubletaptime = m_pcmd->m_command_number;
 
 	}
 }
 
-bool misc::CanDoubleTap(bool check_charge) {
-	//check if DT key is enabled.
-	if (!g_cfg.ragebot.double_tap ||g_cfg.ragebot.double_tap_key.key <= KEY_NONE || g_cfg.ragebot.double_tap_key.key >= KEY_MAX) {
-		double_tap_enabled = false;
-		double_tap_key = false;
-		lastdoubletaptime = 0;
-		g_ctx.globals.tocharge = 0;
-		g_ctx.globals.tochargeamount = 0;
-		g_ctx.globals.shift_ticks = 0;
-		return false;
-	}
 
-	//if DT is on, disable hide shots.
-	if (double_tap_key && g_cfg.ragebot.double_tap_key.key != g_cfg.antiaim.hide_shots_key.key)
-		hide_shots_key = false;
-
-	//disable DT if frozen, fakeducking, revolver etc.
-	if (!double_tap_key || g_ctx.local()->m_bGunGameImmunity() || g_ctx.local()->m_fFlags() & FL_FROZEN || m_gamerules()->m_bIsValveDS() || g_ctx.globals.fakeducking) {
-		double_tap_enabled = false;
-		lastdoubletaptime = 0;
-		g_ctx.globals.tocharge = 0;
-		g_ctx.globals.tochargeamount = 0;
-		g_ctx.globals.shift_ticks = 0;
-
-		return false;
-	}
-
-	if (check_charge) {
-		if (g_ctx.globals.tochargeamount > 0)
-			return false;
-
-		if (g_ctx.globals.startcharge)
-			return false;
-	}
-
-	return true;
-}
-
-
-void misc::HideShots(CUserCmd* m_pcmd)
-{
-	if (double_tap_key)
-		return;
-
-	hide_shots_enabled = true;
-
-	if (!g_cfg.ragebot.enable)
-	{
-		hide_shots_enabled = false;
-		hide_shots_key = false;
-		g_ctx.globals.ticks_allowed = 0;
-		g_ctx.globals.tickbase_shift = 0;
-
-		return;
-	}
-
-	if (!g_cfg.antiaim.hide_shots)
-	{
-		hide_shots_enabled = false;
-		hide_shots_key = false;
-		g_ctx.globals.ticks_allowed = 0;
-		g_ctx.globals.tickbase_shift = 0;
-
-		return;
-	}
-
-	if (g_cfg.antiaim.hide_shots_key.key <= KEY_NONE || g_cfg.antiaim.hide_shots_key.key >= KEY_MAX)
-	{
-		hide_shots_enabled = false;
-		hide_shots_key = false;
-		g_ctx.globals.ticks_allowed = 0;
-		g_ctx.globals.tickbase_shift = 0;
-
-		return;
-	}
-
-	if (double_tap_key)
-	{
-
-		hide_shots_enabled = false;
-		hide_shots_key = false;
-		return;
-	}
-
-	if (!hide_shots_key)
-	{
-		hide_shots_enabled = false;
-		g_ctx.globals.ticks_allowed = 0;
-		g_ctx.globals.tickbase_shift = 0;
-		return;
-	}
-
-	double_tap_key = false;
-
-	if (g_ctx.local()->m_bGunGameImmunity() || g_ctx.local()->m_fFlags() & FL_FROZEN)
-	{
-		hide_shots_enabled = false;
-		g_ctx.globals.ticks_allowed = 0;
-		g_ctx.globals.tickbase_shift = 0;
-		return;
-	}
-
-	if (g_ctx.globals.fakeducking)
-	{
-		hide_shots_enabled = false;
-		g_ctx.globals.ticks_allowed = 0;
-		g_ctx.globals.tickbase_shift = 0;
-		return;
-	}
-
-	if (antiaim::get().freeze_check)
-		return;
-
-	g_ctx.globals.tickbase_shift = m_gamerules()->m_bIsValveDS() ? 6 : 9;
-
-	auto revolver_shoot = g_ctx.globals.weapon->m_iItemDefinitionIndex() == WEAPON_REVOLVER && !g_ctx.globals.revolver_working && (m_pcmd->m_buttons & IN_ATTACK || m_pcmd->m_buttons & IN_ATTACK2);
-	auto weapon_shoot = m_pcmd->m_buttons & IN_ATTACK && g_ctx.globals.weapon->m_iItemDefinitionIndex() != WEAPON_REVOLVER || m_pcmd->m_buttons & IN_ATTACK2 && g_ctx.globals.weapon->is_knife() || revolver_shoot;
-
-	if (g_ctx.send_packet && !g_ctx.globals.weapon->is_grenade() && weapon_shoot)
-		g_ctx.globals.tickbase_shift = g_ctx.globals.tickbase_shift;
-}
 
 void misc::ax()
 {
@@ -1390,5 +1119,51 @@ void misc::ax()
 		m_engine()->ExecuteClientCmd(command3.data());
 		m_engine()->ExecuteClientCmd(command4.data());
 		is_command_set = g_cfg.ragebot.anti_exploit;
+	}
+}
+
+
+#define sig_player_by_index "85 C9 7E 32 A1"
+#define sig_draw_server_hitboxes "55 8B EC 81 EC ? ? ? ? 53 56 8B 35 ? ? ? ? 8B D9 57 8B CE"
+void misc::draw_server_hitboxes() {
+
+	if (!g_cfg.misc.server_hitbox)
+		return;
+
+	if (!m_engine()->IsConnected() || !m_engine()->IsInGame())
+		return;
+
+	if (!g_ctx.local() || !g_ctx.local()->is_alive())
+		return;
+
+	if (!m_input()->m_fCameraInThirdPerson)
+		return;
+
+	auto get_player_by_index = [](int index) -> player_t* { //i dont need this shit func for anything else so it can be lambda
+		typedef player_t* (__fastcall* player_by_index)(int);
+		static auto player_index = reinterpret_cast<player_by_index>(util::FindSignature(("server.dll"), sig_player_by_index));
+
+		if (!player_index)
+			return false;
+
+		return player_index(index);
+	};
+
+	static auto fn = (util::FindSignature(("server.dll"), sig_draw_server_hitboxes));
+	auto duration = -1.f;
+	PVOID entity = nullptr;
+
+	entity = get_player_by_index(g_ctx.local()->EntIndex());
+
+	if (!entity)
+		return;
+
+	__asm {
+		pushad
+		movss xmm1, duration
+		push 0 // 0 - colored, 1 - blue
+		mov ecx, entity
+		call fn
+		popad
 	}
 }

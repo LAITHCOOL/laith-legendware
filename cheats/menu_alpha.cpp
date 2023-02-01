@@ -1072,30 +1072,45 @@ void c_menu::draw(bool is_open)
 						draw_keybind(crypt_str(""), &g_cfg.ragebot.double_tap_key, crypt_str("##HOTKEY_DOUBLETAP"));
 						if (g_cfg.ragebot.double_tap)
 						{
-
-
-
-
 							if (&g_cfg.ragebot.double_tap_key)
 							{
+
+								if (g_cfg.ragebot.double_tap)
+									draw_combo(crypt_str("DoubleTap Type"), g_cfg.ragebot.dt_types, dt_type, ARRAYSIZE(dt_type));
+
+								switch (g_cfg.ragebot.dt_types)
+								{
+								case 0:
+									g_cfg.ragebot.shift_amount = 14;
+									g_cfg.ragebot.recharge_time = 0.50f;
+									g_cfg.ragebot.defensive_doubletap = false;
+									g_cfg.ragebot.use_cs_shift_amount = false;
+									break;
+								case 1:
+									g_cfg.ragebot.shift_amount = 16;
+									g_cfg.ragebot.recharge_time = 0.30f;
+									g_cfg.ragebot.defensive_doubletap = true;
+									g_cfg.ragebot.use_cs_shift_amount = false;
+									break;
+								case 2:
+									g_cfg.ragebot.defensive_doubletap = false;
+									g_cfg.ragebot.use_cs_shift_amount = true;
+									break;
+								}
+
+
 								//ImGui::Checkbox(crypt_str("Defensive double-tap"), &g_cfg.ragebot.defensive_doubletap);
-								ImGui::Checkbox(crypt_str("Break LagComp"), &g_cfg.misc.break_lc);
+								//ImGui::Checkbox(crypt_str("Break LagComp"), &g_cfg.misc.break_lc);
 								//ImGui::Checkbox(crypt_str("Defensive"), &g_cfg.ragebot.defensive_doubletap);
-								ImGui::Checkbox(crypt_str("Custome Double Tap"), &g_cfg.ragebot.use_cs_shift_amount);
+								//ImGui::Checkbox(crypt_str("Custome Double Tap"), &g_cfg.ragebot.use_cs_shift_amount);
 								if (g_cfg.ragebot.use_cs_shift_amount)
 								{
 									ImGui::SliderInt(crypt_str("Ticks To Shift"), &g_cfg.ragebot.shift_amount, 1, 17);
 									ImGui::SliderFloat(crypt_str("Recharge Time"), &g_cfg.ragebot.recharge_time, 0.00f, 3.00f, crypt_str("%.2f"));
 								}
-								else
-								{
-									g_cfg.ragebot.shift_amount = 13;
-									g_cfg.ragebot.recharge_time = 0.75f;
-
-								}
-
-
 							}
+
+
 						}
 					}
 					tab_end();
@@ -1258,6 +1273,7 @@ void c_menu::draw(bool is_open)
 
 						if (g_cfg.antiaim.flick)
 							ImGui::SliderInt(crypt_str("Flick Speed"), &g_cfg.antiaim.flicktick, 5, 64, false, crypt_str("%d°"));
+						ImGui::Checkbox(crypt_str("Desync on-shot (BETA)"), &g_cfg.antiaim.desync_on_shot);
 						ImGui::Checkbox(crypt_str("Roll"), &g_cfg.antiaim.roll_enabled);
 						if (g_cfg.antiaim.roll_enabled)
 							ImGui::SliderFloat(crypt_str("roll amount"), &g_cfg.antiaim.roll, -45.f, 45.f, crypt_str("%.2f"));
@@ -1408,6 +1424,8 @@ void c_menu::draw(bool is_open)
 						if (player == ENEMY)
 						{
 							ImGui::Checkbox(crypt_str("Display Resolved Delta"), &g_cfg.player.show_resolved);
+
+							ImGui::Checkbox(crypt_str("Display Server Hitbox"), &g_cfg.misc.server_hitbox);
 							ImGui::Checkbox(crypt_str("OOF arrows"), &g_cfg.player.arrows);
 							ImGui::SameLine();
 							ImGui::ColorEdit(crypt_str("##arrowscolor"), &g_cfg.player.arrows_color, ALPHA);
@@ -1741,13 +1759,21 @@ void c_menu::draw(bool is_open)
 						ImGui::ColorEdit(crypt_str("##serverbulletimpacts"), &g_cfg.esp.server_bullet_impacts_color, ALPHA);
 
 						ImGui::Checkbox(crypt_str("Local tracers"), &g_cfg.esp.bullet_tracer);
+						
+
 						ImGui::SameLine();
 						ImGui::ColorEdit(crypt_str("##bulltracecolor"), &g_cfg.esp.bullet_tracer_color, ALPHA);
 
 						ImGui::Checkbox(crypt_str("Enemy tracers"), &g_cfg.esp.enemy_bullet_tracer);
 						ImGui::SameLine();
 
+
 						ImGui::ColorEdit(crypt_str("##enemybulltracecolor"), &g_cfg.esp.enemy_bullet_tracer_color, ALPHA);
+
+
+						if (g_cfg.esp.bullet_tracer || g_cfg.esp.enemy_bullet_tracer)
+							draw_combo(crypt_str("Tracer Type"), g_cfg.esp.bullet_tracer_type, beams, ARRAYSIZE(beams));
+
 						draw_multicombo(crypt_str("Hit marker"), g_cfg.esp.hitmarker, hitmarkers, ARRAYSIZE(hitmarkers), preview);
 						ImGui::Checkbox(crypt_str("Damage marker"), &g_cfg.esp.damage_marker);
 						ImGui::Checkbox(crypt_str("Kill effect"), &g_cfg.esp.kill_effect);

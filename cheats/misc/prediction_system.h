@@ -8,7 +8,7 @@ class StoredData_t
 public:
 	Vector  m_punch, m_punch_vel, m_viewPunchAngle;
 	Vector m_view_offset, m_vecVelocity, m_vecOrigin;
-	float  m_duck_amount, m_flThirdpersonRecoil, m_flDuckSpeed, m_velocity_modifier, m_flFallVelocity;
+	float  m_duck_amount, m_flThirdpersonRecoil, m_flDuckSpeed, m_velocity_modifier, m_flFallVelocity , m_duckspeed;
 	int	   m_tick = 0, m_command_number = INT_MAX, m_tickbase;
 	bool   m_is_filled = false;
 

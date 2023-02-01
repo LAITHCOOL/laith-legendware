@@ -159,6 +159,9 @@ _declspec(noinline)void hooks::physicssimulate_detour(player_t* player)
     }
 
 
+    //if (!cctx || !cctx->needsprocessing)
+    //    return;
+
     // if invalid tickcount store data
     if (cctx->cmd.m_tickcount == 0x7FFFFFFF)
     {
@@ -171,6 +174,16 @@ _declspec(noinline)void hooks::physicssimulate_detour(player_t* player)
     }
     else
     {
+        int tickbase = g_ctx.local()->m_nTickBase();
+
+        if (cctx->cmd.m_command_number == g_ctx.globals.shifting_command_number)
+            tickbase +=1;
+        else  if (cctx->cmd.m_command_number == g_ctx.globals.shifting_command_number + 1)
+            tickbase += 1;
+
+        g_ctx.local()->m_nTickBase() = tickbase;
+
+
         // get record data and apply
         StoredData_t* data = &engineprediction::get().m_data[(cctx->cmd.m_command_number - 1) % MULTIPLAYER_BACKUP];
         if (data && data->m_command_number == (cctx->cmd.m_command_number - 1) && std::abs(data->m_command_number - cctx->cmd.m_command_number) <= MULTIPLAYER_BACKUP)
@@ -236,3 +249,10 @@ int hooks::processinterpolatedlist()
     return ((ProcessInterpolatedListFn)original_processinterpolatedlist)();
 }
 
+using ClampBonesInBBox_t = void(__thiscall*) (void*, matrix3x4_t*, int);
+void __fastcall hooks::ClampBonesInBBox(player_t* player, void* edx, matrix3x4_t* matrix, int mask)
+{
+    if (g_ctx.globals.setuping_bones)
+        ((ClampBonesInBBox_t)original_oClampBonesInBBox)(player, matrix, mask);
+    
+}

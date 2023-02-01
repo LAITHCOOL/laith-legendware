@@ -13,6 +13,7 @@
 #include "..\..\cheats\visuals\bullet_tracers.h"
 #include "..\..\cheats\visuals\dormant_esp.h"
 #include "..\..\cheats\lagcompensation\local_animations.h"
+#include "../../cheats/tickbase shift/tickbase_shift.h"
 
 using PaintTraverse_t = void(__thiscall*)(void*, vgui::VPANEL, bool, bool);
 
@@ -113,11 +114,11 @@ void __fastcall hooks::hooked_painttraverse(void* ecx, void* edx, vgui::VPANEL p
 
 		g_cfg.player_list.players.clear();
 
-		misc::get().double_tap_enabled = false;
-		misc::get().double_tap_key = false;
+		tickbase::get().double_tap_enabled = false;
+		tickbase::get().double_tap_key = false;
 
-		misc::get().hide_shots_enabled = false;
-		misc::get().hide_shots_key = false;
+		tickbase::get().hide_shots_enabled = false;
+		tickbase::get().hide_shots_key = false;
 	}
 
 	if (m_engine()->IsTakingScreenshot() && g_cfg.misc.anti_screenshot)

@@ -19,6 +19,7 @@
 #include "..\..\cheats\ragebot\zeusbot.h"
 #include "..\..\cheats\lagcompensation\local_animations.h"
 #include "..\..\cheats\lagcompensation\animation_system.h"
+#include "..\..\cheats\tickbase shift\tickbase_shift.h"
 
 using CreateMove_t = void(__thiscall*)(IBaseClientDLL*, int, float, bool);
 
@@ -137,7 +138,7 @@ void __stdcall test(int sequence_number, float input_sample_frametime, bool acti
 	g_ctx.globals.tickbase_shift = 0;
 	g_ctx.globals.double_tap_fire = false;
 	g_ctx.globals.force_send_packet = false;
-	g_ctx.globals.exploits = misc::get().double_tap_key || misc::get().hide_shots_key;
+	g_ctx.globals.exploits = tickbase::get().double_tap_key || tickbase::get().hide_shots_key;
 	g_ctx.globals.current_weapon = g_ctx.globals.weapon->get_weapon_group(g_cfg.ragebot.enable);
 	g_ctx.globals.slowwalking = false;
 	g_ctx.globals.original_forwardmove = m_pcmd->m_forwardmove;
@@ -198,7 +199,7 @@ void __stdcall test(int sequence_number, float input_sample_frametime, bool acti
 
 
 	antiaim::get().breaking_lby = false;
-
+	g_ctx.globals.wish_angle = m_pcmd->m_viewangles;
 	auto wish_angle = m_pcmd->m_viewangles;
 
 	misc::get().fast_stop(m_pcmd);
@@ -373,14 +374,16 @@ void __stdcall test(int sequence_number, float input_sample_frametime, bool acti
 	}
 
 
-	misc::get().DoubleTap(m_pcmd);
-	misc::get().HideShots(m_pcmd);
+	tickbase::get().DoubleTap(m_pcmd);
+	tickbase::get().HideShots(m_pcmd);
 
-	if (g_cfg.misc.break_lc)
-	misc::get().lagexploit(m_pcmd);
+	//if (g_cfg.misc.break_lc)
+	//misc::get().lagexploit(m_pcmd);
 
-	misc::get().automatic_peek(m_pcmd, wish_angle.y);
+	if (g_cfg.ragebot.defensive_doubletap)
+		tickbase::get().double_tap_deffensive(m_pcmd);
 
+	misc::get().automatic_peek(m_pcmd, g_ctx.globals.wish_angle.y);
 
 	if (!g_ctx.globals.weapon->is_non_aim())
 	{
@@ -512,7 +515,7 @@ void __stdcall test(int sequence_number, float input_sample_frametime, bool acti
 		}
 	}//
 
-	if (g_ctx.send_packet && !g_ctx.globals.should_send_packet && (!g_ctx.globals.should_choke_packet || (!misc::get().hide_shots_enabled && !g_ctx.globals.double_tap_fire)))
+	if (g_ctx.send_packet && !g_ctx.globals.should_send_packet && (!g_ctx.globals.should_choke_packet || (!tickbase::get().hide_shots_enabled && !g_ctx.globals.double_tap_fire)))
 	{
 		local_animations::get().local_data.fake_angles = m_pcmd->m_viewangles; //-V807
 		local_animations::get().local_data.real_angles = local_animations::get().local_data.stored_real_angles;

@@ -79,38 +79,18 @@ public:
 
 	void rank_reveal();
 
-	void double_tap(CUserCmd* m_pcmd);
-	void DoubleTap(CUserCmd* m_pcmd);
-	bool CanDoubleTap(bool check_charge);
-	void HideShots(CUserCmd* m_pcmd);
-	void break_prediction(CUserCmd* cmd);
-	void hide_shots(CUserCmd* m_pcmd, bool should_work);
+	
 
 	void ax();
 
-	void anti_anti_defensive(CUserCmd* m_pcmd);
+	void draw_server_hitboxes();
 
-	bool teleport(CUserCmd* m_pcmd);
+	
 
-	void dt_test(CUserCmd* m_pcmd);
+	void fix_autopeek(CUserCmd* cmd);
 
-	void double_tap_deffensive(CUserCmd* m_pcmd);
-	void lagexploit(CUserCmd* m_pcmd);
-	void BreakLagComp(CUserCmd* m_pcmd);
-	void anti_defensive(CUserCmd* m_pcmd);
-
-	bool recharging_double_tap = false;
 
 	bool jumpbugged = false;
-
-	bool double_tap_enabled = false;
-	bool double_tap_key = false;
-	bool double_tap_checkc = false;
-
-	bool bDidPeek = false;
-	int lastdoubletaptime = 0;
-	bool hide_shots_enabled = false;
-	bool hide_shots_key = false;
 	void EnableHiddenCVars();
 	int getCorrectTickbase(CUserCmd* m_pCmd, int tickbase) ;
 };

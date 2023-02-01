@@ -147,6 +147,8 @@ public:
 
 		int current_weapon = 0;
 		int last_aimbot_shot = 0;
+		int shot_command = 0;
+		int TimeSinceLastShot = 0;
 		int bomb_carrier = 0;
 		int kills = 0;
 		int should_buy = 0;
@@ -219,8 +221,8 @@ public:
 
 		CUserCmd* teleport_cmd;
 		bool should_teleport;
-		
-
+		Vector wish_angle;
+		bool should_fakelag;
 		ImVec4 menu_color;
 
 		struct

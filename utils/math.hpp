@@ -65,6 +65,8 @@ namespace math {
 
 	void VectorAngles(const Vector& forward, Vector& angles);
 
+	void VectorAngles3(const Vector& forward, QAngle& angles, Vector* up = nullptr);
+
 	void VectorAngles1(const Vector& forward, QAngle& angles, Vector* up);
 
 	void SinCos(float radians, float* sine, float* cosine);

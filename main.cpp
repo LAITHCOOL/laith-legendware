@@ -267,6 +267,8 @@ BOOL WINAPI DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 	return TRUE;
 }
 
+
+
 __forceinline void setup_render()
 {
 	static auto create_font = [](const char* name, int size, int weight, DWORD flags) -> vgui::HFont
@@ -384,6 +386,9 @@ Vector* __fastcall hkGetEyeAngles(void* ecx, void* edx)
 
 	return &vecBuildTransformationsAngles;
 }
+
+
+
 
 using BuildTransformations = Vector * (__thiscall*)(void*, CStudioHdr* hdr, Vector* pos, Quaternion* q, matrix3x4_t* cameraTransform, int bonemask, byte* computed);
 void __fastcall hkBuildTransformations(void* ecx, void* edx, CStudioHdr* hdr, Vector* pos, Quaternion* q, matrix3x4_t* cameraTransform, int bonemask, byte* computed)
@@ -568,6 +573,9 @@ __forceinline void setup_hooks()
 	static auto physicssimulate = (DWORD)(util::FindSignature(crypt_str("client.dll"), g_ctx.signatures.at(14).c_str()));
 	hooks::original_physicssimulate = (DWORD)DetourFunction((PBYTE)physicssimulate, (PBYTE)hooks::hooked_physicssimulate);
 
+	static auto ClampBonesInBBox = (DWORD)(util::FindSignature("client.dll", "55 8B EC 83 E4 F8 83 EC 70 56 57 8B F9 89 7C 24 38 83 BF ? ? ? ? ? 75"));
+	hooks::original_oClampBonesInBBox = (DWORD)DetourFunction((byte*)ClampBonesInBBox, (byte*)hooks::ClampBonesInBBox); //-V206
+
 	static auto modifyeyeposition = (DWORD)(util::FindSignature(crypt_str("client.dll"), g_ctx.signatures.at(15).c_str()));
 	hooks::original_modifyeyeposition = (DWORD)DetourFunction((PBYTE)modifyeyeposition, (PBYTE)hooks::hooked_modifyeyeposition);
 
@@ -611,6 +619,7 @@ __forceinline void setup_hooks()
 	hooks::engine_hook->hook_function(reinterpret_cast<uintptr_t>(hooks::hooked_getscreenaspectratio), 101); //-V107 //-V221
 	hooks::engine_hook->hook_function(reinterpret_cast<uintptr_t>(hooks::hooked_ishltv), 93); //-V107 //-V221
 
+
 	hooks::renderview_hook = new vmthook(reinterpret_cast<DWORD**>(m_renderview()));
 	hooks::renderview_hook->hook_function(reinterpret_cast<uintptr_t>(hooks::hooked_sceneend), 9); //-V107 //-V221
 
@@ -638,6 +647,12 @@ __forceinline void setup_hooks()
 	hooks::filesystem_hook = new vmthook(reinterpret_cast<DWORD**>(util::FindSignature(crypt_str("engine.dll"), g_ctx.signatures.at(20).c_str()) + 0x2));
 	hooks::filesystem_hook->hook_function(reinterpret_cast<uintptr_t>(hooks::hooked_loosefileallowed), 128); //-V107 //-V221
 
+
+	hooks::client_hook->hook_function(reinterpret_cast<uintptr_t>(hooks::hooked_sendnetmsg), 40);//
+	hooks::prediction_hook->hook_function(reinterpret_cast<uintptr_t>(hooks::Hooked_SetupMove), 20);
+	//hooks::engine_hook->hook_function(reinterpret_cast<uintptr_t>(hooks::Hooked_IsPaused), 90); //-V107 //-V221
+	hooks::game_movement_hook = new vmthook(reinterpret_cast<DWORD**>(m_gamemovement()));
+	hooks::game_movement_hook->hook_function(reinterpret_cast<uintptr_t>(hooks::hooked_processmovement), 1);//
 	/*
 	hooks::netchannel_hook = new vmthook(reinterpret_cast<DWORD**>((DWORD**)m_clientstate()->pNetChannel));
 	hooks::netchannel_hook->hook_function(reinterpret_cast<uintptr_t>(hooks::hooked_net_message), 40);*/

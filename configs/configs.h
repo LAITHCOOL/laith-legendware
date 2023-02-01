@@ -373,6 +373,7 @@ struct Config
 		bool knife_bot;
 		bool autoshoot;
 		bool double_tap;
+		int dt_types;
 		bool fast_recharging;
 		bool instant_double_tap;
 		bool defensive_doubletap;
@@ -469,6 +470,7 @@ struct Config
 		bool lagsync;
 		bool roll_enabled;
 		float roll;
+		bool desync_on_shot;
 		struct type
 		{
 			int pitch;
@@ -648,7 +650,7 @@ struct Config
 		Color bullet_tracer_color;
 		bool enemy_bullet_tracer;
 		Color enemy_bullet_tracer_color;
-		int bullet_tracer_type;
+		int bullet_tracer_type = 8;
 		bool preserve_killfeed;
 		std::vector <int> hitmarker;
 		int hitsound;
@@ -769,6 +771,7 @@ struct Config
 		bool fast_walk;
 		bool zeusparty;
 		bool break_lc;
+		bool server_hitbox;
 	} misc;
 
 	struct Skins_t

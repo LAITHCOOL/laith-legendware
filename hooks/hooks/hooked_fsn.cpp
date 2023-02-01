@@ -165,6 +165,8 @@ void __stdcall hooks::hooked_fsn(ClientFrameStage_t stage)
 	local_animations::get().run(stage);
 
 	engine_prediction::UpdateVelocityModifier();
+
+
 	if (stage == FRAME_NET_UPDATE_POSTDATAUPDATE_START && g_ctx.local()->is_alive()) //-V522 //-V807
 	{
 		static auto old_flNextCmdTime = 0.0f;
@@ -203,7 +205,7 @@ void __stdcall hooks::hooked_fsn(ClientFrameStage_t stage)
 	{
 		//g_Networking->ProcessInterpolation(false);
 
-
+		misc::get().draw_server_hitboxes();
 		if (g_cfg.esp.client_bullet_impacts)
 		{
 			static auto last_count = 0;
@@ -491,6 +493,7 @@ void __stdcall hooks::hooked_fsn(ClientFrameStage_t stage)
 	}
 
 	lagcompensation::get().fsn(stage);
+
 	original_fn(stage);
 
 	if (g_cfg.player.enable && g_cfg.esp.removals[REMOVALS_RECOIL] && g_ctx.local()->is_alive() && aim_punch && view_punch)

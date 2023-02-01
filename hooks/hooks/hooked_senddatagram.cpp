@@ -100,7 +100,6 @@ void __fastcall hooks::hooked_packetend(void* ecx, void* edx)
 			}
 
 			g_ctx.globals.last_velocity_modifier = g_ctx.local()->m_flVelocityModifier();
-			//g_ctx.globals.last_velocity_modifier_tick = m_globals()->m_tickcount;
 		}
 	}
 

@@ -10,6 +10,8 @@ public:
 	void fakeflickbylabeforrolix(CUserCmd* m_pcmd);
 	void create_move(CUserCmd* m_pcmd);
 
+	void desync_on_shot(CUserCmd* cmd);
+
 	bool freestand_nix(float& ang);
 
 	void get_best_target();

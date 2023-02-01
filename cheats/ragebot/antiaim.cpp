@@ -48,6 +48,9 @@ void antiaim::create_move(CUserCmd* m_pcmd)
 	if (!flicker)
 		m_pcmd->m_viewangles.y = get_yaw(m_pcmd);
 
+	desync_on_shot(m_pcmd);
+
+
 	if (g_cfg.antiaim.roll_enabled)
 		m_pcmd->m_viewangles.z = flip == true ? g_cfg.antiaim.roll : -g_cfg.antiaim.roll;
 
@@ -55,6 +58,23 @@ void antiaim::create_move(CUserCmd* m_pcmd)
 	fakeflickbylabeforrolix(m_pcmd);
 }
 
+void antiaim::desync_on_shot(CUserCmd* cmd) {
+	if (!g_ctx.local() || !g_cfg.antiaim.desync_on_shot)
+		return;
+
+	if (cmd->m_buttons & IN_ATTACK && !g_ctx.globals.fakeducking
+		&& m_clientstate()->iChokedCommands != 0
+		&& (cmd->m_command_number - g_ctx.globals.shot_command) == 1) {
+		if (!g_ctx.send_packet) {
+			float desync_delta;
+			if (!flip)
+				desync_delta = min(desync_delta, (float)g_cfg.antiaim.type[type].desync_range);
+			else
+				desync_delta = min(desync_delta, (float)g_cfg.antiaim.type[type].inverted_desync_range);
+			cmd->m_viewangles.y += desync_delta;
+		}
+	}
+}
 
 float antiaim::get_pitch(CUserCmd* m_pcmd)
 {

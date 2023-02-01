@@ -9,6 +9,7 @@
 #include "..\fakewalk\slowwalk.h"
 #include "..\lagcompensation\local_animations.h"
 #include <random>
+#include "../tickbase shift/tickbase_shift.h"
 
 void zeusbot::run(CUserCmd* cmd)
 {
@@ -202,7 +203,7 @@ void zeusbot::fire(CUserCmd* cmd)
 	{
 		auto original_tickbase = g_ctx.globals.backup_tickbase;
 		
-		if (misc::get().double_tap_enabled && misc::get().double_tap_key)
+		if (tickbase::get().double_tap_enabled && tickbase::get().double_tap_key)
 			original_tickbase = g_ctx.globals.backup_tickbase + g_cfg.ragebot.shift_amount;
 
 		static auto sv_maxunlag = m_cvar()->FindVar(crypt_str("sv_maxunlag"));

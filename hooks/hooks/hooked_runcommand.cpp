@@ -100,7 +100,8 @@ void __fastcall hooks::hooked_runcommand(void* ecx, void* edx, player_t* player,
 		}
 
 		player->set_abs_origin(player->m_vecOrigin());
-		if (m_globals()->m_frametime > 0.0f && !m_prediction()->EnginePaused) {
+		if (m_globals()->m_frametime > 0.0f && !m_prediction()->EnginePaused)
+		{
 			++player->m_nTickBase();
 			m_globals()->m_curtime = TICKS_TO_TIME(player->m_nTickBase());
 		}
@@ -145,7 +146,7 @@ void __fastcall hooks::hooked_runcommand(void* ecx, void* edx, player_t* player,
 	if (m_pWeapon)
 		FixRevolver(m_pcmd, player);
 
-	if (m_pcmd->m_command_number == 1)
+	if (m_pcmd->m_command_number == g_ctx.globals.shifting_command_number)
 	{
 		player->m_nTickBase() = m_nStoredTickbase;
 		m_globals()->m_curtime = m_nStoredCurtime;
@@ -181,6 +182,9 @@ bool __stdcall hooks::hooked_inprediction()
 
 	return original_fn(m_prediction());
 }
+
+
+
 #include "../../cheats/ragebot/aim.h"
 typedef void(__cdecl* clMove_fn)(float, bool);
 
@@ -306,3 +310,59 @@ next_cmd:
 
 
 
+bool __fastcall hooks::hooked_sendnetmsg(INetChannel* pNetChan, void* edx, INetMessage& msg, bool bForceReliable, bool bVoice)
+{
+	using Fn = bool(__thiscall*)(INetChannel* pNetChan, INetMessage& msg, bool bForceReliable, bool bVoice);
+	static auto ofc = client_hook->get_func_address <Fn>(40);
+
+	if (g_ctx.local() && m_engine()->IsInGame()) {
+		if (msg.GetType() == 14) // Return and don't send messsage if its FileCRCCheck
+			return true;
+
+		if (msg.GetGroup() == 9) // Fix lag when transmitting voice and fakelagging
+			bVoice = true;
+	}
+
+	return ofc(pNetChan, msg, bForceReliable, bVoice);
+}
+
+void __fastcall hooks::Hooked_SetupMove(void* ecx, void* edx, player_t* player, CUserCmd* ucmd, IMoveHelper* moveHelper, void* pMoveData) 
+{
+
+	static auto SetupMove = prediction_hook->get_func_address < void(__thiscall*)(void*, player_t*, CUserCmd*, IMoveHelper*, void*) >(20);
+	
+	SetupMove(ecx, player, ucmd, moveHelper, pMoveData);
+
+	if (!player || !m_engine()->IsConnected() || !m_engine()->IsInGame())
+		return;
+
+	if (!(g_ctx.local()->m_fFlags() & FL_ONGROUND) && !(g_ctx.get_command()->m_buttons & IN_JUMP))
+		return;
+
+	player->m_vecVelocity() *= Vector(1.2f, 1.2f, 1.f);
+}
+
+using ProcessMovement_t = void(__thiscall*)(void*, player_t*, CMoveData*);
+void __fastcall hooks::hooked_processmovement(void* ecx, void* edx, player_t* ent, CMoveData* data)
+{
+	static auto original_fn = game_movement_hook->get_func_address <ProcessMovement_t>(1);
+	data->m_bGameCodeMovedPlayer = false;
+	original_fn(ecx, ent, data);
+}
+
+
+bool __fastcall hooks::Hooked_IsPaused(void* ecx, void* edx) 
+{
+	static auto IsPaused = engine_hook->get_func_address < 	bool(__thiscall*)(void*, void*) >(90);
+
+	static auto return_to_extrapolation = util::FindSignature(crypt_str("client.dll"), crypt_str("FF D0 A1 ?? ?? ?? ?? B9 ?? ?? ?? ?? D9 1D ?? ?? ?? ?? FF 50 34 85 C0 74 22 8B 0D ?? ?? ?? ??") + 0x29);
+	static auto return_to_interpolate = util::FindSignature(crypt_str("client.dll"), crypt_str("84 C0 74 07 C6 05 ? ? ? ? ? 8B"));
+
+	if (_ReturnAddress() == (void*)return_to_extrapolation)
+		return true;
+
+	if (_ReturnAddress() == (uint32_t*)return_to_interpolate)
+		return true;
+
+	return IsPaused(ecx, edx);
+}
