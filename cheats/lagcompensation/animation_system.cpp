@@ -697,7 +697,7 @@ void lagcompensation::update_player_animations(player_t* e)
 	e->m_iEFlags() = backup_eflags;
 
 	memcpy(e->get_animlayers(), animlayers, e->animlayer_count() * sizeof(AnimationLayer));
-
+	memcpy(e->get_animlayers(), player_resolver->previous_layers, e->animlayer_count() * sizeof(AnimationLayer));
 
 	e->invalidate_physics_recursive(8);
 	e->invalidate_bone_cache();
