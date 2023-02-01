@@ -103,122 +103,7 @@ void lagcompensation::fsn(ClientFrameStage_t stage)
 	}
 }
 
-void lagcompensation::extrapolation(player_t* player, Vector& origin, Vector& velocity, int& flags, bool on_ground, int ticks)
-{
-	static const auto sv_gravity = m_cvar()->FindVar(("sv_gravity"));
-	static const auto sv_jump_impulse = m_cvar()->FindVar(("sv_jump_impulse"));
 
-	if (!(flags & FL_ONGROUND))
-		velocity.z -= TICKS_TO_TIME(sv_gravity->GetFloat());
-	else if (player->m_fFlags() & FL_ONGROUND && !on_ground)
-		velocity.z = sv_jump_impulse->GetFloat();
-
-	const auto src = origin;
-	auto end = src + velocity * m_globals()->m_intervalpertick;
-
-	Ray_t r;
-	r.Init(src, end, player->GetCollideable()->OBBMins(), player->GetCollideable()->OBBMaxs());
-
-	CGameTrace t;
-	CTraceFilter filter;
-	filter.pSkip = player;
-
-	m_trace()->TraceRay(r, MASK_PLAYERSOLID, &filter, &t);
-
-	if (t.fraction != 1.f)
-	{
-		for (auto i = 0; i < ticks; i++)
-		{
-			velocity -= t.plane.normal * velocity.Dot(t.plane.normal);
-
-			const auto dot = velocity.Dot(t.plane.normal);
-			if (dot < 0.f)
-				velocity -= Vector(dot * t.plane.normal.x,
-					dot * t.plane.normal.y, dot * t.plane.normal.z);
-
-			end = t.endpos + velocity * TICKS_TO_TIME(1.f - t.fraction);
-
-			r.Init(t.endpos, end, player->GetCollideable()->OBBMins(), player->GetCollideable()->OBBMaxs());
-			m_trace()->TraceRay(r, MASK_PLAYERSOLID, &filter, &t);
-
-			if (t.fraction == 1.f)
-				break;
-		}
-	}
-
-	origin = end = t.endpos;
-	end.z -= ticks;
-
-	r.Init(origin, end, player->GetCollideable()->OBBMins(), player->GetCollideable()->OBBMaxs());
-	m_trace()->TraceRay(r, MASK_PLAYERSOLID, &filter, &t);
-
-	flags &= ~FL_ONGROUND;
-
-	if (t.DidHit() && t.plane.normal.z > .7f)
-		flags |= FL_ONGROUND;
-}
-
-void lagcompensation::extrapolate(player_t* player, Vector& origin, Vector& velocity, int& flags, bool wasonground)
-{
-	static auto sv_gravity = m_cvar()->FindVar(crypt_str("sv_gravity"));
-	static auto sv_jump_impulse = m_cvar()->FindVar(crypt_str("sv_jump_impulse"));
-
-	if (!(flags & FL_ONGROUND))
-		velocity.z -= (m_globals()->m_frametime * sv_gravity->GetFloat());
-	else if (wasonground)
-		velocity.z = sv_jump_impulse->GetFloat();
-
-	const Vector mins = player->GetCollideable()->OBBMins();
-	const Vector max = player->GetCollideable()->OBBMaxs();
-
-	const Vector src = origin;
-	Vector end = src + (velocity * m_globals()->m_frametime);
-
-	Ray_t ray;
-	ray.Init(src, end, mins, max);
-
-	trace_t trace;
-	CTraceFilter filter;
-	filter.pSkip = (void*)(player);
-
-	m_trace()->TraceRay(ray, MASK_PLAYERSOLID, &filter, &trace);
-
-	if (trace.fraction != 1.f)
-	{
-		for (int i = 0; i < 2; i++)
-		{
-			velocity -= trace.plane.normal * velocity.Dot(trace.plane.normal);
-
-			const float dot = velocity.Dot(trace.plane.normal);
-			if (dot < 0.f)
-			{
-				velocity.x -= dot * trace.plane.normal.x;
-				velocity.y -= dot * trace.plane.normal.y;
-				velocity.z -= dot * trace.plane.normal.z;
-			}
-
-			end = trace.endpos + (velocity * (m_globals()->m_intervalpertick * (1.f - trace.fraction)));
-
-			ray.Init(trace.endpos, end, mins, max);
-			m_trace()->TraceRay(ray, MASK_PLAYERSOLID, &filter, &trace);
-
-			if (trace.fraction == 1.f)
-				break;
-		}
-	}
-
-	origin = trace.endpos;
-	end = trace.endpos;
-	end.z -= 2.f;
-
-	ray.Init(origin, end, mins, max);
-	m_trace()->TraceRay(ray, MASK_PLAYERSOLID, &filter, &trace);
-
-	flags &= ~(1 << 0);
-
-	if (trace.DidHit() && trace.plane.normal.z > 0.7f)
-		flags |= (1 << 0);
-}
 
 bool lagcompensation::valid(int i, player_t* e)
 {
@@ -230,7 +115,7 @@ bool lagcompensation::valid(int i, player_t* e)
 			player_resolver[i].reset();
 
 			g_ctx.globals.fired_shots[i] = 0;
-			g_ctx.globals.missed_shots[i] = 0;
+			//g_ctx.globals.missed_shots[i] = 0;
 		}
 		else if (e->IsDormant())
 			is_dormant[i] = true;
