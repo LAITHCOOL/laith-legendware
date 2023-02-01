@@ -538,21 +538,30 @@ void aim::QuickStop(CUserCmd* cmd) {
 
 bool aim::IsSafePoint(adjust_data* record, Vector start_position, Vector end_position, int hitbox) 
 {
-	if (record->low_delta_s && record->curMode == STANDING) {
+	if (record->low_delta_s && record->curMode == STANDING)
+	{
 		if (hitbox_intersection(record->player, record->matrixes_data.low_first, hitbox, start_position, end_position)
 			&& hitbox_intersection(record->player, record->matrixes_data.low_second, hitbox, start_position, end_position)
-			&& hitbox_intersection(record->player, record->matrixes_data.zero, hitbox, start_position, end_position))
+			&& hitbox_intersection(record->player, record->matrixes_data.zero, hitbox, start_position, end_position)) 
+		{
 			return true;
-		SemiSafe = true;
+			SemiSafe = true;
+		}
+		return false;
 	}
-	else {
+	else
+	{
 		if (hitbox_intersection(record->player, record->matrixes_data.first, hitbox, start_position, end_position)
 			&& hitbox_intersection(record->player, record->matrixes_data.second, hitbox, start_position, end_position)
 			&& hitbox_intersection(record->player, record->matrixes_data.zero, hitbox, start_position, end_position))
+		{
 			return true;
+
+		}
 		SemiSafe = false;
+		return false;
 	}
-	
+
 	return false;
 }
 
