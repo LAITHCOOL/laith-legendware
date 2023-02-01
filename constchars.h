@@ -205,7 +205,7 @@ const char* beams[] =
 
 const char* dt_type[] =
 {
-"Normal",
+"Delayed",
 "Defensive",
 "Instant",
 "Custome",
