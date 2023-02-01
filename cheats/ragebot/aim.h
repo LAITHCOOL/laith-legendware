@@ -200,7 +200,8 @@ class aim : public singleton <aim>
 	bool automatic_stop(CUserCmd* cmd);
 	void find_best_target();
 	void fire(CUserCmd* cmd);
-
+	bool SemiSafe;
+	int calc_bt_ticks();
 	void build_seed_table();
 	bool CalculateHitchance1(const Vector& aim_angle, int& final_hitchance);
 
