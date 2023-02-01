@@ -70,59 +70,6 @@ void tickbase::double_tap_deffensive(CUserCmd* cmd)
 	}
 }
 
-
-
-void tickbase::lagexploit(CUserCmd* m_pcmd)
-{
-	bool did_peek = false;
-	//auto predicted_eye_pos = g_ctx.globals.eye_pos + engineprediction::get().backup_data.velocity * m_globals()->m_intervalpertick * 6.f;
-	Vector predicted_eye_pos = g_ctx.globals.eye_pos + (engineprediction::get().backup_data.velocity * m_globals()->m_intervalpertick * 4.f);
-
-
-	if (antiaim::get().type == ANTIAIM_STAND)
-	{
-		did_peek = false;
-		return;
-	}
-
-	for (auto i = 1; i < m_globals()->m_maxclients; i++)
-	{
-		auto e = static_cast<player_t*>(m_entitylist()->GetClientEntity(i));
-		if (!e->valid(true))
-			continue;
-
-		if (!e || i == -1)
-			continue;
-
-		auto records = &player_records[i];
-		if (records->empty())
-			continue;
-
-		auto record = &records->front();
-		if (!record->valid())
-			continue;
-
-		FireBulletData_t fire_data = { };
-
-		fire_data.damage = CAutoWall::GetDamage(predicted_eye_pos, g_ctx.local(), e->hitbox_position_matrix(HITBOX_HEAD, record->matrixes_data.main), &fire_data);
-
-		if (fire_data.damage < 1)
-			continue;
-
-		did_peek = true;
-
-	}
-
-	if (did_peek)
-	{
-		g_ctx.globals.tickbase_shift = 13; // break lc
-		g_ctx.globals.shifting_command_number = m_pcmd->m_command_number; // used for tickbase fix 
-		did_peek = false;
-	}
-}
-
-
-
 void tickbase::DoubleTap(CUserCmd* m_pcmd)
 {
 	double_tap_enabled = true;
