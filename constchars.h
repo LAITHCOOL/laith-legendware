@@ -207,6 +207,7 @@ const char* dt_type[] =
 {
 "Normal",
 "Defensive",
+"Instant",
 "Custome",
 };
 
