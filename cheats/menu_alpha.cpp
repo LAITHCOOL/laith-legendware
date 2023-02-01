@@ -1082,7 +1082,7 @@ void c_menu::draw(bool is_open)
 								{
 								case 0:
 									g_cfg.ragebot.shift_amount = 14;
-									g_cfg.ragebot.recharge_time = 0.50f;
+									g_cfg.ragebot.recharge_time = 0.75f;
 									g_cfg.ragebot.defensive_doubletap = false;
 									g_cfg.ragebot.use_cs_shift_amount = false;
 									break;
@@ -1093,6 +1093,12 @@ void c_menu::draw(bool is_open)
 									g_cfg.ragebot.use_cs_shift_amount = false;
 									break;
 								case 2:
+									g_cfg.ragebot.shift_amount = 14;
+									g_cfg.ragebot.recharge_time = 0.30f;
+									g_cfg.ragebot.defensive_doubletap = false;
+									g_cfg.ragebot.use_cs_shift_amount = false;
+									break;
+								case 3:
 									g_cfg.ragebot.defensive_doubletap = false;
 									g_cfg.ragebot.use_cs_shift_amount = true;
 									break;
