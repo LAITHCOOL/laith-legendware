@@ -672,10 +672,10 @@ std::string weapon_t::get_name()
 	}
 }
 
-std::array <float, 24>& entity_t::m_flPoseParameter()
+std::array <float, 24>& entity_t::m_flPoseParameter() // https://yougame.biz/threads/271926/
 {
-	static auto _m_flPoseParameter = netvars::get().get_offset(crypt_str("CCSPlayer"), crypt_str("m_flPoseParameter"));
-	return *(std::array <float, 24>*)((uintptr_t)this + _m_flPoseParameter);
+        static auto _m_flPoseParameter = netvars::get().get_offset(crypt_str("CBaseAnimating"), crypt_str("m_flPoseParameter"));
+        return *(std::array <float, 24>*)((uintptr_t)this + _m_flPoseParameter);
 }
 
 Vector player_t::get_shoot_position()
